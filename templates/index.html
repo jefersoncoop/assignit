@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Gerar Assinatura Digital</title>
+    <style>
+        body { font-family: sans-serif; max-width: 600px; margin: 50px auto; }
+        form { display: flex; flex-direction: column; gap: 15px; }
+        input, button { padding: 10px; }
+    </style>
+</head>
+<body>
+    <h1>Gerar Solicitação de Assinatura</h1>
+    <form action="/" method="post" enctype="multipart/form-data">
+        <label for="signer_email">E-mail do Signatário:</label>
+        <input type="email" id="signer_email" name="signer_email" required>
+        
+        <label for="document">Documento PDF para Assinar:</label>
+        <input type="file" id="document" name="document" accept=".pdf" required>
+        
+        <button type="submit">Gerar Link de Assinatura</button>
+    </form>
+</body>
+</html>

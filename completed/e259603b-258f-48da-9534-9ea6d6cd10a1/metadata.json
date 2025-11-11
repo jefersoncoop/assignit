@@ -1,0 +1,19 @@
+{
+    "request_id": "e259603b-258f-48da-9534-9ea6d6cd10a1",
+    "dados_signatario": {
+        "nome": "Jeferson Rodrigues",
+        "cpf": "111.222.333-44"
+    },
+    "dados_documento": {
+        "conta": "202720"
+    },
+    "original_filename": "documento_preenchido_e259603b.pdf",
+    "original_hash": "bc63df8417db2256dbeffabab8960b930838be0b9a25e3ce1d3decbb76e07778",
+    "status": "signed",
+    "creation_timestamp": "2025-11-11T12:59:33.236854Z",
+    "audit_log": {
+        "signer_ip": "127.0.0.1",
+        "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
+        "signature_timestamp": "2025-11-11T13:13:18.674448+00:00"
+    }
+}

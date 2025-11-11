@@ -1,0 +1,17 @@
+{
+    "request_id": "a8b328c8-aa7b-4a3a-8f95-0c229ddbe79f",
+    "dados_signatario": {
+        "nome": "Jo\u00e3o da Silva",
+        "cpf": "123.456.789-00",
+        "data_nascimento": "15/10/1990"
+    },
+    "original_filename": "William_Gomes_Freitas.pdf",
+    "original_hash": "b6984db6ba34aeb483d9459ad28c318e06ed10d8e994b8444fe0fdeca3e97934",
+    "status": "signed",
+    "creation_timestamp": "2025-10-15T18:33:25.609888Z",
+    "audit_log": {
+        "signer_ip": "127.0.0.1",
+        "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36",
+        "signature_timestamp": "2025-10-15T18:33:50.139812Z"
+    }
+}
