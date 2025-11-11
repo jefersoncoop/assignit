@@ -22,49 +22,36 @@ from PyPDF2 import PdfWriter, PdfReader
 # --- Configuração do App e Pastas ---
 app = Flask(__name__)
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-# Define o caminho do nosso banco de dados SQLite
 DB_PATH = os.path.join(BASE_DIR, 'assinaturas.db')
 app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{DB_PATH}'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-# Configuração das pastas
 app.config['PENDING_FOLDER'] = os.path.join(BASE_DIR, 'pending')
 app.config['SIGNED_FOLDER'] = os.path.join(BASE_DIR, 'signed')
 app.config['COMPLETED_FOLDER'] = os.path.join(BASE_DIR, 'completed')
 app.config['TEMPLATES_PDF_FOLDER'] = os.path.join(BASE_DIR, 'templates_pdf')
 
-# Garante que as pastas existam
 for folder_key in ['PENDING_FOLDER', 'SIGNED_FOLDER', 'COMPLETED_FOLDER', 'TEMPLATES_PDF_FOLDER']:
     os.makedirs(app.config[folder_key], exist_ok=True)
 
-# Inicia o Banco de Dados
 db = SQLAlchemy(app)
 
 # --- Modelo do Banco de Dados ---
-
 class Documento(db.Model):
-    # Campos principais
     request_id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    status = db.Column(db.String(20), default='pending') # pending, signed, error
+    status = db.Column(db.String(20), default='pending')
     original_filename = db.Column(db.String(255))
     original_hash = db.Column(db.String(64))
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(UTC))
-    
-    # Dados do Signatário
     signer_name = db.Column(db.String(255))
     signer_cpf = db.Column(db.String(20))
-    signer_dob = db.Column(db.String(20)) # Data de Nascimento (opcional)
-    
-    # Dados do Documento (para o /api/criar-por-modelo)
-    doc_data = db.Column(db.JSON, nullable=True) # Armazena 'conta', 'banco', 'agencia', etc.
-    
-    # Dados de Auditoria (preenchidos após assinatura)
+    signer_dob = db.Column(db.String(20), nullable=True)
+    doc_data = db.Column(db.JSON, nullable=True)
     audit_ip = db.Column(db.String(45), nullable=True)
     audit_user_agent = db.Column(db.String(255), nullable=True)
     audit_timestamp = db.Column(db.DateTime, nullable=True)
 
     def to_dict(self):
-        """Helper para transformar o objeto em um dicionário (para a API)"""
         return {
             "request_id": self.request_id,
             "status": self.status,
@@ -87,11 +74,10 @@ def mask_cpf(cpf):
     if not cpf: return "***.***.***-**"
     cpf_numerico = ''.join(filter(str.isdigit, cpf))
     if len(cpf_numerico) != 11:
-        return f"***.{cpf_numerico[3:6]}.{cpf_numerico[6:9]}-**" # Tenta mascarar mesmo assim
+        return f"***.{cpf_numerico[3:6]}.{cpf_numerico[6:9]}-**"
     return f"***.{cpf_numerico[3:6]}.{cpf_numerico[6:9]}-**"
 
-# --- Rotas da API (Refatoradas) ---
-
+# --- Rotas da API ---
 @app.route('/', methods=['GET'])
 def index():
     return jsonify({"status": "API de assinaturas digitais está online."}), 200
@@ -105,9 +91,8 @@ def create_signature_api():
         return jsonify({"sucesso": False, "erro": "O arquivo enviado é inválido ou não é um PDF."}), 400
     dados_signatario = request.form
     campos_obrigatorios = ['nome', 'cpf', 'data_nascimento']
-    for campo in campos_obrigatorios:
-        if campo not in dados_signatario or not dados_signatario[campo]:
-            return jsonify({"sucesso": False, "erro": f"O campo '{campo}' é obrigatório."}), 400
+    if not all(campo in dados_signatario and dados_signatario[campo] for campo in campos_obrigatorios):
+        return jsonify({"sucesso": False, "erro": f"O campo '{campo}' é obrigatório."}), 400
             
     request_id = str(uuid.uuid4())
     pending_path = os.path.join(app.config['PENDING_FOLDER'], request_id)
@@ -136,15 +121,12 @@ def create_signature_api():
     signing_link = url_for('sign_document', request_id=request_id, _external=True)
     return jsonify({ "sucesso": True, "request_id": request_id, "signing_link": signing_link }), 201
 
-
-# ATUALIZADO COM SUAS REGRAS
 @app.route('/api/criar-por-modelo', methods=['POST'])
 def create_from_template_api():
     dados = request.json
     if not dados:
         return jsonify({"sucesso": False, "erro": "Request deve ser do tipo JSON."}), 400
         
-    # ATUALIZADO: Seus novos campos obrigatórios
     campos_obrigatorios = ['nome', 'cpf', 'conta', 'banco', 'agencia', 'tipoconta', 'telefone', 'email']
     if not all(campo in dados and dados[campo] for campo in campos_obrigatorios):
         return jsonify({"sucesso": False, "erro": f"Campos JSON obrigatórios: {campos_obrigatorios}"}), 400
@@ -154,20 +136,14 @@ def create_from_template_api():
     os.makedirs(pending_path)
 
     try:
-        # --- Lógica de Geração do PDF ---
-        
-        # ATUALIZADO: Nome do seu arquivo de modelo
         template_path = os.path.join(app.config['TEMPLATES_PDF_FOLDER'], 'PEDIDO DE DESLIGAMENTO V5.pdf')
         if not os.path.exists(template_path):
              return jsonify({"sucesso": False, "erro": "PDF modelo 'PEDIDO DE DESLIGAMENTO V5.pdf' não encontrado."}), 500
              
         final_pdf_name = f"documento_preenchido_{request_id[:8]}.pdf"
         output_pdf_path = os.path.join(pending_path, final_pdf_name)
-
         packet = io.BytesIO()
         c = canvas.Canvas(packet, pagesize=letter)
-        
-        # ATUALIZADO: Suas coordenadas e campos
         c.drawString(80, 380, f"COOPERADO: {dados['nome']}")
         c.drawString(80, 360, f"DADOS BANCARIOS")
         c.drawString(80, 340, f"BANCO: {dados['banco']}")
@@ -177,7 +153,6 @@ def create_from_template_api():
         c.drawString(80, 260, f"CPF: {dados['cpf']}")
         c.drawString(80, 240, f"TELEFONE : {dados['telefone']}")
         c.drawString(80, 220, f"E-MAIL: {dados['email']}")
-        
         c.save()
         packet.seek(0)
         
@@ -194,19 +169,17 @@ def create_from_template_api():
 
         with open(output_pdf_path, "wb") as f:
             output_writer.write(f)
-        # --- Fim da Lógica de Geração ---
     except Exception as e:
         print(f"Erro ao gerar PDF: {e}")
         return jsonify({"sucesso": False, "erro": "Falha interna ao gerar o PDF."}), 500
 
-    # Salva no Banco de Dados
     original_hash = calculate_hash(output_pdf_path)
     try:
         new_doc = Documento(
             request_id=request_id,
             signer_name=dados['nome'],
             signer_cpf=dados['cpf'],
-            doc_data=dados, # Salva todos os dados extras (banco, conta, email, etc.)
+            doc_data=dados, 
             original_filename=final_pdf_name,
             original_hash=original_hash
         )
@@ -219,8 +192,7 @@ def create_from_template_api():
     signing_link = url_for('sign_document', request_id=request_id, _external=True)
     return jsonify({ "sucesso": True, "request_id": request_id, "signing_link": signing_link }), 201
 
-# --- Rotas do Processo de Assinatura (Refatoradas) ---
-
+# --- Rotas do Processo de Assinatura ---
 @app.route('/sign/<request_id>', methods=['GET'])
 def sign_document(request_id):
     doc = db.session.get(Documento, request_id)
@@ -263,7 +235,7 @@ def submit_signature(request_id):
 
     pending_path = os.path.join(app.config['PENDING_FOLDER'], doc.request_id)
     
-    # Validação da selfie com OpenCV
+    # Validação da selfie
     signature_b64 = request.form['signature'].split(',')[1]
     selfie_b64 = request.form['selfie'].split(',')[1]
     import base64
@@ -282,7 +254,7 @@ def submit_signature(request_id):
         print(f"Erro durante a validação facial: {e}")
         return "<h1>Erro Interno</h1><p>Ocorreu um erro ao processar a validação da selfie.</p>", 500
 
-    # --- Geração da Página de Auditoria (ATUALIZADA) ---
+    # Geração da Página de Auditoria
     audit_pdf_path = os.path.join(pending_path, 'audit_page.pdf')
     c = canvas.Canvas(audit_pdf_path, pagesize=letter)
     width, height = letter
@@ -304,22 +276,15 @@ def submit_signature(request_id):
     if doc.signer_dob:
         text_y -= 20; c.drawString(72, text_y, f"Data de Nascimento: {doc.signer_dob}")
 
-    # ATUALIZADO: Adiciona dinamicamente os campos do doc_data
     if doc.doc_data:
-        # Mapeia a chave interna para o rótulo no PDF
         campos_doc = {
-            'banco': 'Banco',
-            'agencia': 'Agência',
-            'conta': 'Conta',
-            'tipoconta': 'Tipo de Conta',
-            'telefone': 'Telefone',
-            'email': 'E-mail'
+            'banco': 'Banco', 'agencia': 'Agência', 'conta': 'Conta',
+            'tipoconta': 'Tipo de Conta', 'telefone': 'Telefone', 'email': 'E-mail'
         }
         for chave, rotulo in campos_doc.items():
             if chave in doc.doc_data:
                 text_y -= 20; c.drawString(72, text_y, f"{rotulo}: {doc.doc_data[chave]}")
     
-    # Coleta de logs para o DB e para o PDF
     audit_timestamp = datetime.now(UTC)
     audit_ip = request.remote_addr
     audit_user_agent = request.headers.get('User-Agent')
@@ -337,18 +302,27 @@ def submit_signature(request_id):
     c.drawImage(selfie_img, 350, text_y - 140, width=120, height=90, preserveAspectRatio=True, mask='auto')
     c.save()
 
-    # --- Junção dos PDFs ---
+    # --- Junção dos PDFs (CORRIGIDO) ---
     original_pdf_path = os.path.join(pending_path, doc.original_filename)
     output_pdf = PdfWriter()
-    with open(original_pdf_path, 'rb') as f_orig: reader_orig = PdfReader(f_orig)
-    for page in reader_orig.pages: output_pdf.add_page(page)
-    with open(audit_pdf_path, 'rb') as f_audit: reader_audit = PdfReader(f_audit)
-    output_pdf.add_page(reader_audit.pages[0])
     
+    # Abre, lê e adiciona o PDF original
+    with open(original_pdf_path, 'rb') as f_orig:
+        reader_orig = PdfReader(f_orig)
+        for page in reader_orig.pages:
+            output_pdf.add_page(page)
+    
+    # Abre, lê e adiciona o PDF de auditoria
+    with open(audit_pdf_path, 'rb') as f_audit:
+        reader_audit = PdfReader(f_audit)
+        output_pdf.add_page(reader_audit.pages[0])
+    
+    # Salva o arquivo final
     final_filename = f"signed_{doc.original_filename}"
     final_filepath = os.path.join(app.config['SIGNED_FOLDER'], final_filename)
     with open(final_filepath, 'wb') as f_final:
         output_pdf.write(f_final)
+    # --- FIM DA CORREÇÃO ---
     
     # Atualiza o Banco de Dados
     try:
@@ -368,7 +342,7 @@ def submit_signature(request_id):
     
     return redirect(url_for('success', filename=final_filename))
 
-# --- Outras Rotas (Download e Listagem) ---
+# --- Outras Rotas ---
 @app.route('/success')
 def success():
     filename = request.args.get('filename')
@@ -395,7 +369,6 @@ def create_db():
     print("Banco de dados criado com sucesso!")
 
 if __name__ == '__main__':
-    # Cria o DB se não existir, apenas para testes locais
     with app.app_context():
         db.create_all() 
     app.run(debug=True, port=5001)
