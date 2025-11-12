@@ -10,6 +10,7 @@ import cv2
 import io
 from flask import Flask, render_template, request, redirect, url_for, abort, jsonify, send_from_directory
 from flask_sqlalchemy import SQLAlchemy 
+from flask_cors import CORS # <-- NOVA LINHA 1
 from werkzeug.utils import secure_filename
 
 import fitz
@@ -21,6 +22,7 @@ from PyPDF2 import PdfWriter, PdfReader
 
 # --- Configuração do App e Pastas ---
 app = Flask(__name__)
+CORS(app) # <-- NOVA LINHA 2
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.join(BASE_DIR, 'assinaturas.db')
 app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{DB_PATH}'
