@@ -192,7 +192,7 @@ def create_from_template_api():
         return jsonify({"sucesso": False, "erro": f"Erro de banco de dados: {str(e)}"}), 500
         
     signing_link = url_for('sign_document', request_id=request_id, _external=True)
-    return jsonify({ "sucesso": True, "request_id": request_id, "signing_link": signing_link, "download_link":"https://assign.tec.br/download/signed_documento_preenchido_"+final_pdf_name }), 201
+    return jsonify({ "sucesso": True, "request_id": request_id, "signing_link": signing_link, "download_link":"https://assign.tec.br/download/signed_"+final_pdf_name }), 201
 
 # --- Rotas do Processo de Assinatura ---
 @app.route('/sign/<request_id>', methods=['GET'])
