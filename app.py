@@ -142,7 +142,7 @@ def create_from_template_api():
         if not os.path.exists(template_path):
              return jsonify({"sucesso": False, "erro": "PDF modelo 'PEDIDO DE DESLIGAMENTO V5.pdf' não encontrado."}), 500
              
-        final_pdf_name = f"documento_preenchido_{request_id[:8]}.pdf"
+        final_pdf_name = f"documento_preenchido_{request_id}.pdf"
         output_pdf_path = os.path.join(pending_path, final_pdf_name)
         packet = io.BytesIO()
         c = canvas.Canvas(packet, pagesize=letter)
