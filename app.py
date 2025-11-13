@@ -11,6 +11,7 @@ import io
 from flask import Flask, render_template, request, redirect, url_for, abort, jsonify, send_from_directory
 from flask_sqlalchemy import SQLAlchemy 
 from flask_cors import CORS # <-- NOVA LINHA 1
+from flask_basicauth import BasicAuth # NOVA IMPORTAÇÃO
 from werkzeug.utils import secure_filename
 
 import fitz
@@ -23,6 +24,11 @@ from PyPDF2 import PdfWriter, PdfReader
 # --- Configuração do App e Pastas ---
 app = Flask(__name__)
 CORS(app) # <-- NOVA LINHA 2
+# IMPORTANTE: Troque esta senha em produção!
+app.config['BASIC_AUTH_USERNAME'] = 'admin'
+app.config['BASIC_AUTH_PASSWORD'] = 'admin123'
+basic_auth = BasicAuth(app)
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.join(BASE_DIR, 'assinaturas.db')
 app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{DB_PATH}'
@@ -78,6 +84,50 @@ def mask_cpf(cpf):
     if len(cpf_numerico) != 11:
         return f"***.{cpf_numerico[3:6]}.{cpf_numerico[6:9]}-**"
     return f"***.{cpf_numerico[3:6]}.{cpf_numerico[6:9]}-**"
+
+# --- ROTAS DA PÁGINA ADMIN ---
+
+@app.route('/admin')
+@basic_auth.required # Protege esta rota com login/senha
+def admin_dashboard():
+    # Pega todos os documentos do DB
+    try:
+        docs_objects = Documento.query.order_by(Documento.created_at.desc()).all()
+        # Converte para uma lista de dicionários para enviar ao frontend
+        all_docs = [doc.to_dict() for doc in docs_objects]
+    except Exception as e:
+        print(f"Erro ao buscar documentos: {e}")
+        all_docs = []
+        
+    # Passa a lista de documentos (como JSON) para o template
+    return render_template('admin.html', all_docs_json=json.dumps(all_docs))
+
+@app.route('/admin/delete-pending/<request_id>', methods=['DELETE'])
+@basic_auth.required # Protege esta rota
+def delete_pending_document(request_id):
+    doc = db.session.get(Documento, request_id)
+    
+    if not doc:
+        return jsonify({"sucesso": False, "erro": "Documento não encontrado."}), 404
+        
+    if doc.status != 'pending':
+        return jsonify({"sucesso": False, "erro": "Apenas documentos pendentes podem ser excluídos."}), 400
+
+    try:
+        # 1. Deleta a pasta de trabalho
+        pending_path = os.path.join(app.config['PENDING_FOLDER'], doc.request_id)
+        if os.path.exists(pending_path):
+            shutil.rmtree(pending_path)
+            
+        # 2. Deleta o registro do DB
+        db.session.delete(doc)
+        db.session.commit()
+        
+        return jsonify({"sucesso": True, "mensagem": f"Documento {request_id} excluído."})
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"sucesso": False, "erro": str(e)}), 500
 
 # --- Rotas da API ---
 @app.route('/', methods=['GET'])

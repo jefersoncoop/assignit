@@ -1,0 +1,15 @@
+testar 
+
+
+curl -X POST http://127.0.0.1:5001/api/criar-solicitacao \
+-F "documento=@William Gomes Freitas.pdf" \
+-F "nome=João da Silva" \
+-F "cpf=123.456.789-00" \
+-F "data_nascimento=15/10/1990"
+
+
+
+iniciar 
+source venv/bin/activate 
+(venv)  python3 app.py  
+
