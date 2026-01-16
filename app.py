@@ -403,6 +403,29 @@ def listar_documentos():
 def create_db():
     with app.app_context(): db.create_all()
     print("Banco de dados criado!")
+# app.py
+
+# ... (restante do código)
+
+@app.route('/admin/get-logs')
+@basic_auth.required
+def get_logs():
+    log_path = os.path.join(BASE_DIR, 'whatsapp_integration.log')
+    if not os.path.exists(log_path):
+        return jsonify({"logs": ["Arquivo de log ainda não criado."]}), 200
+    
+    try:
+        with open(log_path, 'r') as f:
+            # Lê as últimas 100 linhas para não sobrecarregar a página
+            linhas = f.readlines()
+            ultimas_linhas = linhas[-100:] 
+            # Inverte para mostrar o mais recente primeiro
+            ultimas_linhas.reverse()
+            return jsonify({"logs": ultimas_linhas}), 200
+    except Exception as e:
+        return jsonify({"sucesso": False, "erro": str(e)}), 500
+
+
 
 if __name__ == '__main__':
     with app.app_context(): db.create_all() 
