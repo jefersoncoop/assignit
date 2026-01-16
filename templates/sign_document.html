@@ -1,39 +1,124 @@
 <!DOCTYPE html>
 <html lang="pt-br">
+
 <head>
     <meta charset="UTF-8">
     <title>Assinar Documento</title>
     <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.0.0/dist/signature_pad.umd.min.js"></script>
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol"; margin: 0; background-color: #f4f7f9; }
-        .container { max-width: 800px; margin: 2rem auto; background: #fff; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); overflow: hidden; }
-        .step { display: none; padding: 2rem 3rem; }
-        .step.active { display: block; }
-        h1, h2 { color: #333; }
-        p { color: #666; line-height: 1.6; }
-        .data-display { background-color: #f9f9f9; border: 1px solid #eee; padding: 1rem; border-radius: 5px; margin: 1rem 0; }
-        .document-viewer img { max-width: 100%; border: 1px solid #ccc; margin-bottom: 10px; }
-        .signature-pad-container, .selfie-container { margin-top: 1.5rem; border: 2px dashed #ccc; padding: 10px; text-align: center; }
-        canvas { border: 1px solid #333; cursor: crosshair; }
-        video { border-radius: 5px; }
-        .actions { text-align: right; margin-top: 2rem; }
-        .btn { padding: 12px 25px; border: none; border-radius: 5px; font-size: 1rem; font-weight: bold; cursor: pointer; transition: all 0.2s ease; }
-        .btn-primary { background-color: #007bff; color: white; }
-        .btn-secondary { background-color: #6c757d; color: white; margin-right: 10px; }
-        .btn:disabled { background-color: #ccc; cursor: not-allowed; }
-        .terms { margin-top: 1.5rem; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+            margin: 0;
+            background-color: #f4f7f9;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 2rem auto;
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        .step {
+            display: none;
+            padding: 2rem 3rem;
+        }
+
+        .step.active {
+            display: block;
+        }
+
+        h1,
+        h2 {
+            color: #333;
+        }
+
+        p {
+            color: #666;
+            line-height: 1.6;
+        }
+
+        .data-display {
+            background-color: #f9f9f9;
+            border: 1px solid #eee;
+            padding: 1rem;
+            border-radius: 5px;
+            margin: 1rem 0;
+        }
+
+        .document-viewer img {
+            max-width: 100%;
+            border: 1px solid #ccc;
+            margin-bottom: 10px;
+        }
+
+        .signature-pad-container,
         .selfie-container {
-        margin-top: 1.5rem;
-        border: 2px dashed #ccc;
-        padding: 10px;
-        text-align: center;
-        /* NOVA ALTERAÇÃO ABAIXO */
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-    }
+            margin-top: 1.5rem;
+            border: 2px dashed #ccc;
+            padding: 10px;
+            text-align: center;
+        }
+
+        canvas {
+            border: 1px solid #333;
+            cursor: crosshair;
+        }
+
+        video {
+            border-radius: 5px;
+        }
+
+        .actions {
+            text-align: right;
+            margin-top: 2rem;
+        }
+
+        .btn {
+            padding: 12px 25px;
+            border: none;
+            border-radius: 5px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .btn-primary {
+            background-color: #007bff;
+            color: white;
+        }
+
+        .btn-secondary {
+            background-color: #6c757d;
+            color: white;
+            margin-right: 10px;
+        }
+
+        .btn:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+
+        .terms {
+            margin-top: 1.5rem;
+        }
+
+        .selfie-container {
+            margin-top: 1.5rem;
+            border: 2px dashed #ccc;
+            padding: 10px;
+            text-align: center;
+            /* NOVA ALTERAÇÃO ABAIXO */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
     </style>
 </head>
+
 <body>
     <div class="container">
         <form id="signatureForm" action="{{ url_for('submit_signature', request_id=request_id) }}" method="post">
@@ -42,18 +127,47 @@
 
             <div id="step-1" class="step active">
                 <h1>Início da Assinatura</h1>
-                <p>Olá, <strong>{{ signer_name }}</strong>. Por favor, confirme seus dados e aceite os termos para continuar.</p>
+                <p>Olá, <strong>{{ signer_name }}</strong>. Por favor, confirme seus dados e aceite os termos para
+                    continuar.</p>
                 <div class="data-display">
                     <strong>Nome:</strong> {{ signer_name }}<br>
                     <strong>CPF:</strong> {{ masked_cpf }}
                 </div>
                 <div class="terms">
                     <label>
-                        <input type="checkbox" id="terms-checkbox"> Li e concordo com os Termos de Uso e Política de Privacidade do sistema.
+                        <input type="checkbox" id="terms-checkbox"> Li e concordo com os Termos de Uso e Política de
+                        Privacidade do sistema.
                     </label>
                 </div>
                 <div class="actions">
                     <button type="button" class="btn btn-primary" id="btn-to-step-2" disabled>Avançar</button>
+                </div>
+                <div style="margin-top: 20px; padding: 15px; border-top: 1px solid #eee;">
+                    <p style="font-size: 0.9em; color: #666;">Os dados acima estão incorretos?</p>
+                    <button type="button" onclick="abrirModalExclusao()"
+                        style="background: #dc3545; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer;">
+                        Solicitar exclusão deste documento
+                    </button>
+                </div>
+
+                <div id="modalExclusao"
+                    style="display:none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 999; align-items: center; justify-content: center;">
+                    <div style="background: white; padding: 30px; border-radius: 8px; max-width: 400px; width: 90%;">
+                        <h3>Confirmar Exclusão</h3>
+                        <p>Para sua segurança, confirme seus dados para excluir este documento permanentemente:</p>
+                        <input type="text" id="exc_cpf" placeholder="Seu CPF (apenas números)"
+                            style="width: 100%; padding: 10px; margin-bottom: 10px;">
+                        <input type="text" id="exc_dob" placeholder="Data de Nascimento (DD/MM/AAAA)"
+                            style="width: 100%; padding: 10px; margin-bottom: 20px;">
+
+                        <div style="display: flex; justify-content: space-between;">
+                            <button onclick="fecharModalExclusao()"
+                                style="padding: 10px; border: none; cursor: pointer;">Cancelar</button>
+                            <button onclick="executarExclusao()"
+                                style="padding: 10px; background: #dc3545; color: white; border: none; cursor: pointer;">Confirmar
+                                e Excluir</button>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -62,7 +176,7 @@
                 <p>Leia atentamente o documento abaixo antes de prosseguir para a assinatura.</p>
                 <div class="document-viewer">
                     {% for image_url in document_images %}
-                        <img src="{{ image_url }}" alt="Página do documento">
+                    <img src="{{ image_url }}" alt="Página do documento">
                     {% endfor %}
                 </div>
                 <div class="actions">
@@ -84,9 +198,10 @@
 
             <div id="step-4" class="step">
                 <h2>Selfie de Confirmação</h2>
-                <p>Para garantir sua identidade, tire uma foto (selfie) nítida <strong>segurando um documento de identificação com foto</strong> (RG ou CNH) ao lado do seu rosto.</p>
+                <p>Para garantir sua identidade, tire uma foto (selfie) nítida <strong>segurando um documento de
+                        identificação com foto</strong> (RG ou CNH) ao lado do seu rosto.</p>
                 <div class="selfie-container">
-                    <video id="video" width="320" height="240" autoplay ></video>
+                    <video id="video" width="320" height="240" autoplay></video>
                     <canvas id="selfieCanvas" width="320" height="240" style="display:none;"></canvas>
                     <button type="button" class="btn btn-secondary" id="start-camera">Habilitar Câmera</button>
                     <button type="button" class="btn btn-primary" id="snap" style="display:none;">Tirar Foto</button>
@@ -161,7 +276,7 @@
             video.style.display = 'none';
             snapButton.style.display = 'none';
             submitButton.disabled = false;
-            
+
             // Para o stream da câmera
             video.srcObject.getTracks().forEach(track => track.stop());
         });
@@ -172,10 +287,49 @@
             if (!signaturePad.isEmpty()) {
                 document.getElementById('signatureInput').value = signaturePad.toDataURL('image/png');
             }
-             if (selfieCanvas.toDataURL() !== document.createElement('canvas').toDataURL()) {
+            if (selfieCanvas.toDataURL() !== document.createElement('canvas').toDataURL()) {
                 document.getElementById('selfieInput').value = selfieCanvas.toDataURL('image/png');
             }
         });
+
+        function abrirModalExclusao() {
+            document.getElementById('modalExclusao').style.display = 'flex';
+        }
+
+        function fecharModalExclusao() {
+            document.getElementById('modalExclusao').style.display = 'none';
+        }
+
+        async function executarExclusao() {
+            const cpf = document.getElementById('exc_cpf').value;
+            const dob = document.getElementById('exc_dob').value;
+            const requestId = "{{ request_id }}"; // O Flask injeta isso no template
+
+            if (!cpf || !dob) {
+                alert("Por favor, preencha o CPF e a Data de Nascimento.");
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/excluir-documento', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ request_id: requestId, cpf: cpf, dob: dob })
+                });
+
+                const data = await response.json();
+
+                if (data.sucesso) {
+                    alert("Documento excluído com sucesso. Você pode solicitar um novo agora.");
+                    window.location.href = "https://assign.tec.br"; // Ou sua página inicial
+                } else {
+                    alert("Erro: " + data.erro);
+                }
+            } catch (error) {
+                alert("Erro ao conectar com o servidor.");
+            }
+        }
     </script>
 </body>
+
 </html>
