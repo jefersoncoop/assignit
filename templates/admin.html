@@ -28,7 +28,10 @@
         .log-line { margin-bottom: 4px; border-bottom: 1px solid #343a40; padding-bottom: 2px; }
         .text-error { color: #ff6b6b; }
         .text-success { color: #51cf66; }
-        .text-info { color: #4dabf7; }
+        .text-info { color: #4dabf7; }        
+        .btn-download { background: #3498db; color: white; }
+        .btn-delete { background: #e74c3c; color: white; }
+        .btn:disabled { background: #bdc3c7; cursor: not-allowed; }
         
         .btn-refresh { margin-bottom: 10px; padding: 8px 15px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; }
     </style>
@@ -88,7 +91,7 @@
                 <td>${doc.cpf_signatario}</td>
                 <td><span class="badge bg-${doc.status}">${doc.status.toUpperCase()}</span></td>
                 <td>
-                    ${doc.status === 'signed' ? `<a href="/download/signed_${doc.nome_arquivo}">Download</a>` : `<button onclick="deleteDocument('${doc.request_id}', '${doc.nome_signatario}')">Excluir</button> <a href="/sign/${doc.request_id}">Link</a>` }
+                    ${doc.status === 'signed' ? `<a href="/download/signed_${doc.nome_arquivo}">Download</a>` : `<button class="btn btn-delete" onclick="deleteDocument('${doc.request_id}', '${doc.nome_signatario}')">Excluir</button> <button href="/sign/${doc.request_id}">Link</button>` }
                 </td>
             </tr>
         `).join('');
