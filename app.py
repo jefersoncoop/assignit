@@ -15,7 +15,6 @@ from flask_basicauth import BasicAuth
 from werkzeug.utils import secure_filename
 import urllib.parse # NOVA IMPORTAÇÃO
 import requests
-
 import fitz
 from PIL import Image
 from reportlab.pdfgen import canvas
@@ -87,9 +86,9 @@ def enviar_notificacao_whatsapp(nome, cpf, link, etapa, numero):
         telefone = ''.join(filter(str.isdigit, str(numero)))
         
         # Formata a descrição conforme seu modelo
-        descricao = f"Solicitação de desligamento recebida {nome} \nCPF: {cpf}\nLink: {link}"
+        descricao = f"Solicitação de desligamento recebida {nome} CPF: {cpf} Link: {link}"
         if etapa == "Concluído":
-            descricao = f"Assinatura Concluída! {nome} \nSeu documento já está disponível.\nDownload: {link}"
+            descricao = f"Assinatura Concluída! {nome} Seu documento já está disponível. Download: {link}"
 
         # Monta a URL de destino
         base_url = "https://webatende.coopedu.com.br:3000/api/crm/notify/"
