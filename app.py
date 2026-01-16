@@ -13,6 +13,8 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS 
 from flask_basicauth import BasicAuth 
 from werkzeug.utils import secure_filename
+import urllib.parse # NOVA IMPORTAÇÃO
+import requests
 
 import fitz
 from PIL import Image
@@ -52,6 +54,7 @@ class Documento(db.Model):
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(UTC))
     signer_name = db.Column(db.String(255))
     signer_cpf = db.Column(db.String(20))
+    signer_phone = db.Column(db.String(20))
     signer_dob = db.Column(db.String(20), nullable=True)
     doc_data = db.Column(db.JSON, nullable=True)
     audit_ip = db.Column(db.String(45), nullable=True)
@@ -77,6 +80,32 @@ def calculate_hash(filepath):
             sha256_hash.update(byte_block)
     return sha256_hash.hexdigest()
 
+
+def enviar_notificacao_whatsapp(nome, cpf, link, etapa, numero):
+    try:
+        # Limpa o número (deixa apenas dígitos)
+        telefone = ''.join(filter(str.isdigit, str(numero)))
+        
+        # Formata a descrição conforme seu modelo
+        descricao = f"Solicitação de desligamento recebida {nome} \nCPF: {cpf}\nLink: {link}"
+        if etapa == "Concluído":
+            descricao = f"Assinatura Concluída! {nome} \nSeu documento já está disponível.\nDownload: {link}"
+
+        # Monta a URL de destino
+        base_url = "https://webatende.coopedu.com.br:3000/api/crm/notify/"
+        params = {
+            "titulo": "📢 *AVISO - COOPEDU*",
+            "descricao": descricao,
+            "etapa": etapa,
+            "numero": telefone
+        }
+        
+        # Envia o POST
+        response = requests.post(base_url, params=params, timeout=10)
+        return response.status_code == 200
+    except Exception as e:
+        print(f"Erro ao enviar WhatsApp: {e}")
+        return False
 def mask_cpf(cpf):
     if not cpf: return "***.***.***-**"
     cpf_numerico = ''.join(filter(str.isdigit, cpf))
@@ -250,7 +279,7 @@ def create_from_template_api():
     try:
         new_doc = Documento(
             request_id=request_id, signer_name=dados['nome'],
-            signer_cpf=dados['cpf'], signer_dob=dados['data_nascimento'],
+            signer_cpf=dados['cpf'], signer_phone=dados['telefone'],signer_dob=dados['data_nascimento'],
             doc_data=dados, original_filename=final_pdf_name, original_hash=original_hash
         )
         db.session.add(new_doc)
@@ -260,6 +289,8 @@ def create_from_template_api():
         return jsonify({"sucesso": False, "erro": str(e)}), 500
         
     signing_link = url_for('sign_document', request_id=request_id, _external=True)
+    # ENVIAR WHATSAPP DE CRIAÇÃO
+    enviar_notificacao_whatsapp(dados['nome'], dados['cpf'], signing_link, "Aguardando Assinatura", dados['telefone'])
     return jsonify({ "sucesso": True, "request_id": request_id, "signing_link": signing_link }), 201
 
 # --- Rotas do Processo de Assinatura ---
@@ -346,10 +377,13 @@ def submit_signature(request_id):
         output_pdf.add_page(reader.pages[0])
     
     final_name = f"signed_{doc.original_filename}"
+    download_link = f"https://assign.tec.br/download/{final_name}" # Use seu domínio real
     with open(os.path.join(app.config['SIGNED_FOLDER'], final_name), 'wb') as f_final: output_pdf.write(f_final)
     
     doc.status = 'signed'; doc.audit_ip = request.remote_addr; doc.audit_timestamp = audit_timestamp
     db.session.commit()
+    # ENVIAR WHATSAPP DE CONCLUSÃO
+    enviar_notificacao_whatsapp(doc.signer_name, doc.signer_cpf, download_link, "Concluído", doc.signer_phone)
     shutil.move(pending_path, os.path.join(app.config['COMPLETED_FOLDER'], request_id))
     return redirect(url_for('success', filename=final_name))
 
