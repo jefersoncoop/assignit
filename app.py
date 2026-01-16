@@ -16,6 +16,7 @@ from werkzeug.utils import secure_filename
 import urllib.parse # NOVA IMPORTAÇÃO
 import requests
 import fitz
+import logging
 from PIL import Image
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter
@@ -79,18 +80,22 @@ def calculate_hash(filepath):
             sha256_hash.update(byte_block)
     return sha256_hash.hexdigest()
 
-
-def enviar_notificacao_whatsapp(nome, cpf, link, etapa, numero):
+logging.basicConfig(
+    filename=os.path.join(os.path.dirname(os.path.abspath(__file__)), 'whatsapp_integration.log'),
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
+# --- FUNÇÃO PARA ENVIAR WHATSAPP (COM LOGS DETALHADOS) ---
+def enviar_notificacao_whatsapp(nome, cpf, link, etapa, numero, request_id):
     try:
-        # Limpa o número (deixa apenas dígitos)
         telefone = ''.join(filter(str.isdigit, str(numero)))
         
-        # Formata a descrição conforme seu modelo
-        descricao = f"Solicitação de desligamento recebida {nome} CPF: {cpf} Link: {link}"
+        # Formata a descrição
         if etapa == "Concluído":
             descricao = f"Assinatura Concluída! {nome} Seu documento já está disponível. Download: {link}"
+        else:
+            descricao = f"Solicitação de desligamento recebida! {nome} - CPF: {cpf} Link para assinatura: {link}"
 
-        # Monta a URL de destino
         base_url = "https://webatende.coopedu.com.br:3000/api/crm/notify/"
         params = {
             "titulo": "📢 *AVISO - COOPEDU*",
@@ -99,11 +104,23 @@ def enviar_notificacao_whatsapp(nome, cpf, link, etapa, numero):
             "numero": telefone
         }
         
-        # Envia o POST
-        response = requests.post(base_url, params=params, timeout=10)
-        return response.status_code == 200
+        # Log de início de tentativa
+        logging.info(f"[ENVIO] Tentando enviar para {telefone} | Etapa: {etapa} | ID: {request_id}")
+
+        response = requests.post(base_url, params=params, timeout=12)
+        
+        if response.status_code == 200:
+            logging.info(f"[SUCESSO] Mensagem enviada para {telefone} | Resposta: {response.text}")
+            return True
+        else:
+            logging.error(f"[ERRO API] Código: {response.status_code} | Resposta: {response.text} | Telefone: {telefone}")
+            return False
+
+    except requests.exceptions.Timeout:
+        logging.error(f"[TIMEOUT] A API de WhatsApp demorou muito para responder | ID: {request_id}")
+        return False
     except Exception as e:
-        print(f"Erro ao enviar WhatsApp: {e}")
+        logging.error(f"[FALHA CRÍTICA] Erro ao processar envio para {numero}: {str(e)}")
         return False
 def mask_cpf(cpf):
     if not cpf: return "***.***.***-**"
