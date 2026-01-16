@@ -279,7 +279,7 @@ def create_from_template_api():
     try:
         new_doc = Documento(
             request_id=request_id, signer_name=dados['nome'],
-            signer_cpf=dados['cpf'], signer_phone=dados['telefone'],signer_dob=dados['data_nascimento'],
+            signer_cpf=dados['cpf'], signer_phone=dados['telefone'],
             doc_data=dados, original_filename=final_pdf_name, original_hash=original_hash
         )
         db.session.add(new_doc)
