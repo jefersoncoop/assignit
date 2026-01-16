@@ -91,7 +91,7 @@
                 <td>${doc.cpf_signatario}</td>
                 <td><span class="badge bg-${doc.status}">${doc.status.toUpperCase()}</span></td>
                 <td>
-                    ${doc.status === 'signed' ? `<a href="/download/signed_${doc.nome_arquivo}">Download</a>` : `<button class="btn btn-delete" onclick="deleteDocument('${doc.request_id}', '${doc.nome_signatario}')">Excluir</button> <button href="/sign/${doc.request_id}">Link</button>` }
+                    ${doc.status === 'signed' ? `<a href="/download/signed_${doc.nome_arquivo}">Download</a>` : `<button class="btn btn-delete" onclick="deleteDocument('${doc.request_id}', '${doc.nome_signatario}')">Excluir</button> <a href="/sign/${doc.request_id}"><button>Link</button></a>` }
                 </td>
             </tr>
         `).join('');
