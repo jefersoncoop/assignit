@@ -198,7 +198,7 @@ def create_from_template_api():
     if not dados: return jsonify({"sucesso": False, "erro": "JSON inválido."}), 400
         
     # Adicionado 'data_nascimento' como campo necessário para permitir exclusão futura
-    campos_req = ['nome', 'cpf', 'data_nascimento', 'conta', 'banco', 'agencia', 'tipoconta', 'telefone', 'email']
+    campos_req = ['nome', 'cpf', 'conta', 'banco', 'agencia', 'tipoconta', 'telefone', 'email']
     if not all(campo in dados and dados[campo] for campo in campos_req):
         return jsonify({"sucesso": False, "erro": "Campos obrigatórios ausentes."}), 400
 
