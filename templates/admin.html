@@ -88,7 +88,7 @@
                 <td>${doc.cpf_signatario}</td>
                 <td><span class="badge bg-${doc.status}">${doc.status.toUpperCase()}</span></td>
                 <td>
-                    ${doc.status === 'signed' ? `<a href="/download/signed_${doc.nome_arquivo}">Download</a>` : `<a href="/sign/${doc.request_id}">Link</a>`}
+                    ${doc.status === 'signed' ? `<a href="/download/signed_${doc.nome_arquivo}">Download</a>` : `<a href="/admin/delete-pending/${doc.request_id}">Apagar</a> <a href="/sign/${doc.request_id}">Link</a>` }
                 </td>
             </tr>
         `).join('');
@@ -111,6 +111,19 @@
             viewer.innerHTML = "Erro ao carregar logs.";
         }
     }
+            function deleteDocument(requestId, signerName) {
+            if (!confirm(`Tem certeza que deseja excluir o documento pendente de "${signerName}"?\n\nEsta ação não pode ser desfeita.`)) {
+                return;
+            }
+
+            fetch(`/admin/delete-pending/${requestId}`, {
+                method: 'DELETE',
+            })
+            .catch(error => {
+                console.error('Erro:', error);
+                alert('Ocorreu um erro de rede. Tente novamente.');
+            });
+        }
 
     // Inicialização
     renderDocs();
