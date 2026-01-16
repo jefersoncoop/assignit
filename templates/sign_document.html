@@ -157,8 +157,6 @@
                         <p>Para sua segurança, confirme seus dados para excluir este documento permanentemente:</p>
                         <input type="text" id="exc_cpf" placeholder="Seu CPF (apenas números)"
                             style="width: 100%; padding: 10px; margin-bottom: 10px;">
-                        <input type="text" id="exc_dob" placeholder="Data de Nascimento (DD/MM/AAAA)"
-                            style="width: 100%; padding: 10px; margin-bottom: 20px;">
 
                         <div style="display: flex; justify-content: space-between;">
                             <button onclick="fecharModalExclusao()"
@@ -302,11 +300,11 @@
 
         async function executarExclusao() {
             const cpf = document.getElementById('exc_cpf').value;
-            const dob = document.getElementById('exc_dob').value;
+            
             const requestId = "{{ request_id }}"; // O Flask injeta isso no template
 
-            if (!cpf || !dob) {
-                alert("Por favor, preencha o CPF e a Data de Nascimento.");
+            if (!cpf) {
+                alert("Por favor, preencha o CPF.");
                 return;
             }
 
@@ -314,7 +312,7 @@
                 const response = await fetch('/api/excluir-documento', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ request_id: requestId, cpf: cpf, dob: dob })
+                    body: JSON.stringify({ request_id: requestId, cpf: cpf})
                 });
 
                 const data = await response.json();

@@ -119,7 +119,6 @@ def user_delete_document():
     dados = request.json
     request_id = dados.get('request_id')
     cpf = dados.get('cpf')
-    dob = dados.get('dob')
 
     doc = db.session.get(Documento, request_id)
     if not doc:
@@ -133,8 +132,8 @@ def user_delete_document():
     cpf_limpo = ''.join(filter(str.isdigit, cpf))
     doc_cpf_limpo = ''.join(filter(str.isdigit, doc.signer_cpf))
 
-    if cpf_limpo != doc_cpf_limpo or dob != doc.signer_dob:
-        return jsonify({"sucesso": False, "erro": "Dados de validação incorretos (CPF ou Data de Nascimento)."}), 403
+    if cpf_limpo != doc_cpf_limpo :
+        return jsonify({"sucesso": False, "erro": "Dados de validação incorretos."}), 403
 
     try:
         pending_path = os.path.join(app.config['PENDING_FOLDER'], request_id)
