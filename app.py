@@ -399,7 +399,7 @@ def submit_signature(request_id):
     doc.status = 'signed'; doc.audit_ip = request.remote_addr; doc.audit_timestamp = audit_timestamp
     db.session.commit()
     # ENVIAR WHATSAPP DE CONCLUSÃO
-    enviar_notificacao_whatsapp(doc.signer_name, doc.signer_cpf, download_link, "Concluído", doc.signer_phone)
+    enviar_notificacao_whatsapp(doc.signer_name, doc.signer_cpf, download_link, "Concluído", doc.signer_phone, doc.request_id)
     shutil.move(pending_path, os.path.join(app.config['COMPLETED_FOLDER'], request_id))
     return redirect(url_for('success', filename=final_name))
 
