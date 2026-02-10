@@ -254,7 +254,8 @@ def create_from_template_api():
             "sucesso": True, 
             "mensagem": "Você já possui uma solicitação pendente para este contrato.", 
             "request_id": existente.request_id, 
-            "signing_link": url_for('sign_document', request_id=existente.request_id, _external=True)
+            "signing_link": url_for('sign_document', request_id=existente.request_id, _external=True),
+            "download_link": url_for('download_file', filename=f"signed_{existente.original_filename}")
         }), 200
 
     request_id = str(uuid.uuid4())
