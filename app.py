@@ -11,12 +11,16 @@ import io
 from flask import Flask, render_template, request, redirect, url_for, abort, jsonify, send_from_directory
 from flask_sqlalchemy import SQLAlchemy 
 from flask_cors import CORS 
+from flask_cors import CORS 
 from flask_basicauth import BasicAuth 
 from werkzeug.utils import secure_filename
-import urllib.parse # NOVA IMPORTAÇÃO
+import urllib.parse
 import requests
 import fitz
 import logging
+import csv
+import threading
+import time
 from PIL import Image
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter
@@ -39,8 +43,9 @@ app.config['PENDING_FOLDER'] = os.path.join(BASE_DIR, 'pending')
 app.config['SIGNED_FOLDER'] = os.path.join(BASE_DIR, 'signed')
 app.config['COMPLETED_FOLDER'] = os.path.join(BASE_DIR, 'completed')
 app.config['TEMPLATES_PDF_FOLDER'] = os.path.join(BASE_DIR, 'templates_pdf')
+app.config['TEMPLATES_DYNAMIC_FOLDER'] = os.path.join(BASE_DIR, 'templates_dynamic')
 
-for folder_key in ['PENDING_FOLDER', 'SIGNED_FOLDER', 'COMPLETED_FOLDER', 'TEMPLATES_PDF_FOLDER']:
+for folder_key in ['PENDING_FOLDER', 'SIGNED_FOLDER', 'COMPLETED_FOLDER', 'TEMPLATES_PDF_FOLDER', 'TEMPLATES_DYNAMIC_FOLDER']:
     os.makedirs(app.config[folder_key], exist_ok=True)
 
 db = SQLAlchemy(app)
@@ -60,6 +65,9 @@ class Documento(db.Model):
     audit_ip = db.Column(db.String(45), nullable=True)
     audit_user_agent = db.Column(db.String(255), nullable=True)
     audit_timestamp = db.Column(db.DateTime, nullable=True)
+    campanha_id = db.Column(db.String(36), nullable=True)
+    whatsapp_status = db.Column(db.String(20), default='N/A')
+    whatsapp_attempts = db.Column(db.Integer, default=0)
 
     def to_dict(self):
         return {
@@ -69,7 +77,38 @@ class Documento(db.Model):
             "nome_signatario": self.signer_name,
             "cpf_signatario": self.signer_cpf,
             "data_criacao": self.created_at.isoformat() if self.created_at else None,
-            "data_assinatura": self.audit_timestamp.isoformat() if self.audit_timestamp else None
+            "data_assinatura": self.audit_timestamp.isoformat() if self.audit_timestamp else None,
+            "whatsapp_status": self.whatsapp_status,
+            "campanha_id": self.campanha_id
+        }
+
+class Campanha(db.Model):
+    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    name = db.Column(db.String(255), nullable=False)
+    template_id = db.Column(db.String(36), nullable=False)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(UTC))
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "name": self.name,
+            "template_id": self.template_id,
+            "created_at": self.created_at.isoformat() if self.created_at else None
+        }
+
+class TemplateDocumento(db.Model):
+    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    name = db.Column(db.String(255), nullable=False)
+    original_filename = db.Column(db.String(255), nullable=False)
+    fields_mapping = db.Column(db.JSON, nullable=False)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(UTC))
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "name": self.name,
+            "filename": self.original_filename,
+            "created_at": self.created_at.isoformat() if self.created_at else None
         }
 
 # --- Funções Auxiliares ---
@@ -191,6 +230,108 @@ def user_delete_document():
         db.session.rollback()
         return jsonify({"sucesso": False, "erro": str(e)}), 500
 
+# --- Rotas Template Builder ---
+@app.route('/admin/builder')
+@basic_auth.required
+def template_builder():
+    return render_template('template_builder.html')
+
+@app.route('/api/admin/template/upload', methods=['POST'])
+@basic_auth.required
+def upload_template_builder():
+    if 'documento' not in request.files:
+        return jsonify({"sucesso": False, "erro": "Nenhum arquivo PDF foi enviado."}), 400
+    file = request.files['documento']
+    filename = secure_filename(file.filename)
+    
+    temp_id = str(uuid.uuid4())
+    temp_dir = os.path.join(app.config['TEMPLATES_DYNAMIC_FOLDER'], temp_id)
+    os.makedirs(temp_dir, exist_ok=True)
+    pdf_path = os.path.join(temp_dir, filename)
+    file.save(pdf_path)
+    
+    image_paths = []
+    try:
+        doc_fitz = fitz.open(pdf_path)
+        for page_num in range(len(doc_fitz)):
+            page = doc_fitz.load_page(page_num)
+            pix = page.get_pixmap(dpi=150)
+            img_name = f"page_{page_num}.png"
+            pix.save(os.path.join(temp_dir, img_name))
+            image_paths.append({
+                "page": page_num,
+                "url": url_for('get_template_file', temp_id=temp_id, filename=img_name),
+                "width": page.rect.width,
+                "height": page.rect.height
+            })
+    except Exception as e:
+        return jsonify({"sucesso": False, "erro": f"Erro manipulando PDF: {str(e)}"}), 500
+        
+    return jsonify({
+        "sucesso": True,
+        "temp_id": temp_id,
+        "filename": filename,
+        "images": image_paths
+    })
+
+@app.route('/api/admin/template/save', methods=['POST'])
+@basic_auth.required
+def save_template_builder():
+    dados = request.json
+    name = dados.get('name')
+    temp_id = dados.get('temp_id')
+    filename = dados.get('filename')
+    fields = dados.get('fields')
+    
+    if not all([name, temp_id, filename, fields is not None]):
+        return jsonify({"sucesso": False, "erro": "Dados incompletos"}), 400
+        
+    temp_dir = os.path.join(app.config['TEMPLATES_DYNAMIC_FOLDER'], temp_id)
+    if not os.path.exists(temp_dir):
+        return jsonify({"sucesso": False, "erro": "Template temporário não encontrado"}), 404
+        
+    try:
+        new_template = TemplateDocumento(
+            id=temp_id,
+            name=name,
+            original_filename=filename,
+            fields_mapping=fields
+        )
+        db.session.add(new_template)
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"sucesso": False, "erro": str(e)}), 500
+        
+    return jsonify({"sucesso": True, "template_id": temp_id})
+
+@app.route('/templates_dynamic/<temp_id>/<filename>')
+def get_template_file(temp_id, filename):
+    return send_from_directory(os.path.join(app.config['TEMPLATES_DYNAMIC_FOLDER'], temp_id), filename)
+
+@app.route('/api/admin/templates', methods=['GET'])
+@basic_auth.required
+def list_templates_builder():
+    templates = TemplateDocumento.query.order_by(TemplateDocumento.created_at.desc()).all()
+    return jsonify([t.to_dict() for t in templates])
+
+@app.route('/admin/template/<template_id>', methods=['DELETE'])
+@basic_auth.required
+def delete_template_builder(template_id):
+    tpl = db.session.get(TemplateDocumento, template_id)
+    if not tpl:
+        return jsonify({"sucesso": False, "erro": "Template não encontrado."}), 404
+    try:
+        temp_dir = os.path.join(app.config['TEMPLATES_DYNAMIC_FOLDER'], tpl.id)
+        if os.path.exists(temp_dir):
+            shutil.rmtree(temp_dir)
+        db.session.delete(tpl)
+        db.session.commit()
+        return jsonify({"sucesso": True, "mensagem": "Template excluído."})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"sucesso": False, "erro": str(e)}), 500
+
 # --- Rotas da API ---
 @app.route('/', methods=['GET'])
 def index():
@@ -255,7 +396,7 @@ def create_from_template_api():
             "mensagem": "Você já possui uma solicitação pendente para este contrato.", 
             "request_id": existente.request_id, 
             "signing_link": url_for('sign_document', request_id=existente.request_id, _external=True),
-            "download_link": url_for('download_file', filename=f"signed_{existente.original_filename}")
+            "download_link": url_for('download_file', filename=f"signed_{existente.original_filename}", _external=True) 
         }), 200
 
     request_id = str(uuid.uuid4())
@@ -310,7 +451,498 @@ def create_from_template_api():
     enviar_notificacao_whatsapp(dados['nome'], dados['cpf'], signing_link, "Aguardando Assinatura", dados['telefone'])
     return jsonify({ "sucesso": True, "request_id": request_id, "signing_link": signing_link }), 201
 
+@app.route('/api/criar-solicitacao-dinamica', methods=['POST'])
+def create_dynamic_template_api():
+    dados = request.json
+    if not dados: return jsonify({"sucesso": False, "erro": "JSON inválido."}), 400
+    
+    template_id = dados.get('template_id')
+    if not template_id: return jsonify({"sucesso": False, "erro": "template_id é obrigatório."}), 400
+    
+    tpl = db.session.get(TemplateDocumento, template_id)
+    if not tpl: return jsonify({"sucesso": False, "erro": "Template não encontrado."}), 404
+    
+    if not all(campo in dados and dados[campo] for campo in ['nome', 'cpf', 'telefone']):
+        return jsonify({"sucesso": False, "erro": "Campos básicos ausentes (nome, cpf, telefone)."}), 400
+
+    existente = Documento.query.filter_by(signer_cpf=dados['cpf'], status='pending').first()
+    if existente and existente.original_filename.startswith(f'doc_dinamico_{template_id}'):
+        return jsonify({
+            "sucesso": True,
+            "mensagem": "Você já possui uma solicitação pendente para este contrato.",
+            "request_id": existente.request_id,
+            "signing_link": url_for('sign_document', request_id=existente.request_id, _external=True)
+        }), 200
+        
+    request_id = str(uuid.uuid4())
+    pending_path = os.path.join(app.config['PENDING_FOLDER'], request_id)
+    os.makedirs(pending_path)
+    
+    final_pdf_name = f"doc_dinamico_{template_id}_{request_id}.pdf"
+    output_pdf_path = os.path.join(pending_path, final_pdf_name)
+    
+    template_pdf_path = os.path.join(app.config['TEMPLATES_DYNAMIC_FOLDER'], tpl.id, tpl.original_filename)
+    if not os.path.exists(template_pdf_path):
+        return jsonify({"sucesso": False, "erro": "Arquivo PDF base do template ausente."}), 500
+
+    try:
+        template_reader = PdfReader(open(template_pdf_path, "rb"))
+        output_writer = PdfWriter()
+        
+        fields_by_page = {}
+        for campo_map in tpl.fields_mapping:
+            pg = campo_map.get('page', 0)
+            if pg not in fields_by_page: fields_by_page[pg] = []
+            fields_by_page[pg].append(campo_map)
+            
+        for page_num in range(len(template_reader.pages)):
+            page_obj = template_reader.pages[page_num]
+            
+            if page_num in fields_by_page:
+                packet = io.BytesIO()
+                w = float(page_obj.mediabox.width)
+                h = float(page_obj.mediabox.height)
+                c = canvas.Canvas(packet, pagesize=(w, h))
+                c.setFont("Helvetica", 11)
+                
+                for campo_map in fields_by_page[page_num]:
+                    var_name = campo_map.get('name')
+                    val = dados.get(var_name, '')
+                    if val is None:
+                        val = ''
+                    
+                    x_pct = campo_map.get('x_percent', 0)
+                    y_pct = campo_map.get('y_percent', 0)
+                    
+                    x_pos = (x_pct / 100) * w
+                    y_pos = h - ((y_pct / 100) * h)
+                    
+                    c.drawString(x_pos, y_pos - 4, str(val))
+                    
+                c.save()
+                packet.seek(0)
+                overlay_pdf = PdfReader(packet)
+                page_obj.merge_page(overlay_pdf.pages[0])
+                
+            output_writer.add_page(page_obj)
+
+        with open(output_pdf_path, "wb") as f: output_writer.write(f)
+            
+    except Exception as e:
+        return jsonify({"sucesso": False, "erro": str(e)}), 500
+
+    original_hash = calculate_hash(output_pdf_path)
+    try:
+        new_doc = Documento(
+            request_id=request_id, signer_name=dados['nome'],
+            signer_cpf=dados['cpf'], signer_phone=dados['telefone'],
+            doc_data=dados, original_filename=final_pdf_name, original_hash=original_hash
+        )
+        db.session.add(new_doc)
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"sucesso": False, "erro": str(e)}), 500
+        
+    signing_link = url_for('sign_document', request_id=request_id, _external=True)
+    enviar_notificacao_whatsapp(dados['nome'], dados['cpf'], signing_link, "Aguardando Assinatura", dados['telefone'])
+    
+    return jsonify({ "sucesso": True, "request_id": request_id, "signing_link": signing_link }), 201
+
+
+# --- ROTAS DE CAMPANHA ---
+@app.route('/api/admin/campanhas', methods=['GET'])
+@basic_auth.required
+def listar_campanhas():
+    campanhas = Campanha.query.order_by(Campanha.created_at.desc()).all()
+    res = []
+    for c in campanhas:
+        docs = Documento.query.filter_by(campanha_id=c.id).all()
+        assinados = sum(1 for d in docs if d.status == 'signed')
+        pendentes = len(docs) - assinados
+        d = c.to_dict()
+        d['total_docs'] = len(docs)
+        d['docs_assinados'] = assinados
+        d['docs_pendentes'] = pendentes
+        res.append(d)
+    return jsonify(res)
+
+@app.route('/api/admin/template/<template_id>/csv-padrao', methods=['GET'])
+@basic_auth.required
+def baixar_template_csv(template_id):
+    tpl = db.session.get(TemplateDocumento, template_id)
+    if not tpl:
+        return jsonify({"sucesso": False, "erro": "Template não encontrado"}), 404
+        
+    vars_mapped = set([campo.get('name') for campo in tpl.fields_mapping])
+    obrigatorios = ['nome', 'cpf', 'telefone']
+    headers = obrigatorios.copy()
+    for v in vars_mapped:
+        if v not in headers: headers.append(v)
+            
+    si = io.StringIO()
+    cw = csv.writer(si)
+    cw.writerow(headers)
+    
+    csv_data = si.getvalue().encode('utf-8')
+    
+    return csv_data, 200, {
+        "Content-Disposition": "attachment; filename=modelo_campanha.csv",
+        "Content-type": "text/csv; charset=utf-8"
+    }
+
+@app.route('/api/admin/campanhas/upload', methods=['POST'])
+@basic_auth.required
+def upload_campanhas_csv():
+    nome = request.form.get('nome')
+    template_id = request.form.get('template_id')
+    if 'csv_file' not in request.files or not template_id or not nome:
+        return jsonify({"sucesso": False, "erro": "Dados incompletos"}), 400
+        
+    tpl = db.session.get(TemplateDocumento, template_id)
+    if not tpl: return jsonify({"sucesso": False, "erro": "Template não encontrado."}), 404
+        
+    template_pdf_path = os.path.join(app.config['TEMPLATES_DYNAMIC_FOLDER'], tpl.id, tpl.original_filename)
+    if not os.path.exists(template_pdf_path):
+        return jsonify({"sucesso": False, "erro": "Arquivo PDF base do template ausente."}), 500
+
+    camp_id = str(uuid.uuid4())
+    new_campanha = Campanha(id=camp_id, name=nome, template_id=template_id)
+    db.session.add(new_campanha)
+    
+    file = request.files['csv_file']
+    raw_bytes = file.stream.read()
+    try:
+        text = raw_bytes.decode('utf-8-sig') # Remove unicode BOM if present
+    except UnicodeDecodeError:
+        text = raw_bytes.decode('latin-1')
+
+    # Detect delimiter
+    primeira_linha = text.split('\n')[0]
+    delimiter = ';' if ';' in primeira_linha else ','
+    
+    stream = io.StringIO(text, newline=None)
+    csv_input = csv.DictReader(stream, delimiter=delimiter)
+    
+    count = 0
+    for row in csv_input:
+        if not row: continue
+        
+        cpf_key = next((k for k in row.keys() if k and k.strip().lower() == 'cpf'), None)
+        if not cpf_key: continue
+        
+        cpf = str(row[cpf_key]).strip()
+        
+        # Phone logic (could be 'telefone' or 'whatsapp' or 'celular')
+        telefone_key = next((k for k in row.keys() if k and k.strip().lower() in ['telefone', 'whatsapp', 'celular', 'phone']), None)
+        telefone = str(row[telefone_key]).strip() if telefone_key else ''
+        
+        # Nome logic
+        nome_key = next((k for k in row.keys() if k and k.strip().lower() == 'nome'), None)
+        nome_linha = str(row[nome_key]).strip() if nome_key else 'Participante'
+
+        
+        if not cpf: continue
+        
+        request_id = str(uuid.uuid4())
+        pending_path = os.path.join(app.config['PENDING_FOLDER'], request_id)
+        os.makedirs(pending_path, exist_ok=True)
+        final_pdf_name = f"campanha_{new_campanha.id}_{request_id}.pdf"
+        output_pdf_path = os.path.join(pending_path, final_pdf_name)
+        
+        try:
+            template_reader = PdfReader(open(template_pdf_path, "rb"))
+            output_writer = PdfWriter()
+            fields_by_page = {}
+            mapping = tpl.fields_mapping if tpl.fields_mapping else []
+            for campo_map in mapping:
+                pg = campo_map.get('page', 0)
+                if pg not in fields_by_page: fields_by_page[pg] = []
+                fields_by_page[pg].append(campo_map)
+                
+            for page_num in range(len(template_reader.pages)):
+                page_obj = template_reader.pages[page_num]
+                if page_num in fields_by_page:
+                    packet = io.BytesIO()
+                    w = float(page_obj.mediabox.width)
+                    h = float(page_obj.mediabox.height)
+                    c = canvas.Canvas(packet, pagesize=(w, h))
+                    c.setFont("Helvetica", 11)
+                    
+                    for campo_map in fields_by_page[page_num]:
+                        var_name = campo_map.get('name')
+                        val = row.get(var_name, '')
+                        if val is None: val = ''
+                        x_pct = campo_map.get('x_percent', 0)
+                        y_pct = campo_map.get('y_percent', 0)
+                        x_pos = (x_pct / 100) * w
+                        y_pos = h - ((y_pct / 100) * h)
+                        c.drawString(x_pos, y_pos - 4, str(val))
+                    c.save()
+                    packet.seek(0)
+                    overlay_pdf = PdfReader(packet)
+                    page_obj.merge_page(overlay_pdf.pages[0])
+                output_writer.add_page(page_obj)
+
+            with open(output_pdf_path, "wb") as f: output_writer.write(f)
+            original_hash = calculate_hash(output_pdf_path)
+            
+            new_doc = Documento(
+                request_id=request_id, signer_name=nome_linha,
+                signer_cpf=cpf, signer_phone=telefone,
+                doc_data=row, original_filename=final_pdf_name, 
+                original_hash=original_hash,
+                campanha_id=camp_id, whatsapp_status='Pausado'
+            )
+            db.session.add(new_doc)
+            count += 1
+            
+        except Exception as e:
+            logging.error(f"[CAMPANHA ERRO] Linha ignorada: {str(e)}")
+            continue
+
+    db.session.commit()
+    return jsonify({"sucesso": True, "campanha_id": new_campanha.id, "total": count})
+
+@app.route('/campanha/<campanha_id>', methods=['GET'])
+def campanha_login_geral(campanha_id):
+    camp = db.session.get(Campanha, campanha_id)
+    if not camp: return "<h1>Campanha não encontrada</h1>", 404
+    return render_template('campanha_auth.html', request_id='', campanha_id=campanha_id)
+
+@app.route('/campanha/auth/<request_id>', methods=['GET'])
+def campanha_auth(request_id):
+    doc = db.session.get(Documento, request_id)
+    if not doc or not doc.campanha_id: return "<h1>Inválido</h1>", 404
+    if doc.status == 'signed': return redirect(url_for('success', filename=f"signed_{doc.original_filename}"))
+    return render_template('campanha_auth.html', request_id=request_id, campanha_id='')
+
+@app.route('/api/campanha/auth/validar', methods=['POST'])
+def validate_campanha_auth():
+    dados = request.json
+    request_id = dados.get('request_id')
+    campanha_id = dados.get('campanha_id')
+    cpf = dados.get('cpf')
+    
+    cpf_limpo = ''.join(filter(str.isdigit, str(cpf)))
+    
+    doc = None
+    if request_id:
+        doc = db.session.get(Documento, request_id)
+        if doc and ''.join(filter(str.isdigit, str(doc.signer_cpf))) != cpf_limpo:
+            doc = None
+    elif campanha_id:
+        docs = Documento.query.filter_by(campanha_id=campanha_id).all()
+        doc = next((d for d in docs if ''.join(filter(str.isdigit, str(d.signer_cpf))) == cpf_limpo), None)
+
+    if not doc:
+        return jsonify({"sucesso": False, "erro": "CPF não localizado para esta campanha."}), 403
+        
+    if doc.status == 'signed':
+        return jsonify({
+            "sucesso": True, 
+            "status": "signed",
+            "redirect_url": url_for('success', filename=f"signed_{doc.original_filename}")
+        })
+        
+    return jsonify({"sucesso": True, "request_id": doc.request_id, "status": doc.status})
+
+@app.route('/api/campanha/auth/telefone', methods=['POST'])
+def validate_campanha_telefone():
+    dados = request.json
+    request_id = dados.get('request_id')
+    telefone = dados.get('telefone')
+    
+    doc = db.session.get(Documento, request_id)
+    if not doc or not doc.campanha_id: return jsonify({"sucesso": False, "erro": "Inválido"}), 404
+    
+    if telefone:
+        doc.signer_phone = ''.join(filter(str.isdigit, str(telefone)))
+        db.session.commit()
+        
+    return jsonify({"sucesso": True, "redirect_url": url_for('visualizar_documento_campanha', request_id=request_id, _external=True)})
+
+@app.route('/campanha/visualizar/<request_id>')
+def visualizar_documento_campanha(request_id):
+    doc = db.session.get(Documento, request_id)
+    if not doc or not doc.campanha_id: return "<h1>Inválido</h1>", 404
+    if doc.status == 'signed': return redirect(url_for('success', filename=f"signed_{doc.original_filename}"))
+    pdf_url = url_for('get_pending_file', request_id=request_id, filename=doc.original_filename)
+    return render_template('campanha_leitura.html', request_id=request_id, pdf_url=pdf_url, nome=doc.signer_name)
+
+@app.route('/api/campanha/<campanha_id>/documento/<cpf>', methods=['GET'])
+def get_status_campanha_crm(campanha_id, cpf):
+    doc = Documento.query.filter_by(campanha_id=campanha_id, signer_cpf=cpf).first()
+    if not doc:
+        cpf_num = ''.join(filter(str.isdigit, cpf))
+        docs = Documento.query.filter_by(campanha_id=campanha_id).all()
+        doc = next((d for d in docs if ''.join(filter(str.isdigit, d.signer_cpf)) == cpf_num), None)
+        
+    if not doc: return jsonify({"sucesso": False, "erro": "CPF não encontrado nesta campanha."}), 404
+    ans = doc.to_dict()
+    if doc.status == 'signed':
+        ans['download_link'] = f"https://assign.tec.br/download/signed_{doc.original_filename}"
+    return jsonify({"sucesso": True, "documento": ans})
+
+@app.route('/api/admin/campanhas/<campanha_id>/relatorio', methods=['GET'])
+@basic_auth.required
+def exportar_relatorio_campanha(campanha_id):
+    camp = db.session.get(Campanha, campanha_id)
+    if not camp: return "Nao encontrado", 404
+    docs = Documento.query.filter_by(campanha_id=campanha_id).order_by(Documento.created_at.desc()).all()
+    
+    si = io.StringIO()
+    cw = csv.writer(si, delimiter=';')
+    cw.writerow(['Nome', 'CPF', 'Telefone', 'Status Assinatura', 'Status WhatsApp', 'Data Assinatura', 'Link Download'])
+    
+    for d in docs:
+        dt_assinatura = d.audit_timestamp.strftime('%d/%m/%Y %H:%M:%S') if d.status == 'signed' and d.audit_timestamp else ''
+        download_link = f"https://assign.tec.br/download/signed_{d.original_filename}" if d.status == 'signed' else ''
+        
+        cw.writerow([
+            d.signer_name,
+            d.signer_cpf,
+            d.signer_phone or '',
+            d.status,
+            d.whatsapp_status,
+            dt_assinatura,
+            download_link
+        ])
+        
+    csv_data = si.getvalue().encode('utf-8-sig') 
+    return csv_data, 200, {
+        "Content-Disposition": f'attachment; filename="relatorio_{camp.name.replace(" ", "_")}.csv"',
+        "Content-type": "text/csv; charset=utf-8-sig"
+    }
+
+@app.route('/api/admin/campanhas/<campanha_id>/docs', methods=['GET'])
+@basic_auth.required
+def listar_docs_campanha(campanha_id):
+    docs = Documento.query.filter_by(campanha_id=campanha_id).order_by(Documento.created_at.desc()).all()
+    res = []
+    for d in docs:
+        item = d.to_dict()
+        item['signer_phone'] = d.signer_phone
+        res.append(item)
+    return jsonify(res)
+
+@app.route('/api/admin/campanhas/resend/<request_id>', methods=['POST'])
+@basic_auth.required
+def reenviar_campanha_wa(request_id):
+    doc = db.session.get(Documento, request_id)
+    if not doc: return jsonify({"sucesso": False, "erro": "Doc não encontrado."}), 404
+    telefone = request.json.get('telefone')
+    if telefone is not None:
+        doc.signer_phone = ''.join(filter(str.isdigit, str(telefone)))
+    
+    doc.whatsapp_status = 'Pendente'
+    doc.whatsapp_attempts = 0
+    db.session.commit()
+    return jsonify({"sucesso": True})
+
+@app.route('/api/admin/campanhas/<campanha_id>/iniciar-disparos', methods=['POST'])
+@basic_auth.required
+def iniciar_disparos(campanha_id):
+    docs = Documento.query.filter_by(campanha_id=campanha_id, whatsapp_status='Pausado').all()
+    count = 0
+    for doc in docs:
+        doc.whatsapp_status = 'Pendente'
+        count += 1
+    db.session.commit()
+    return jsonify({"sucesso": True, "afetados": count})
+
+@app.route('/api/admin/docs/<request_id>', methods=['DELETE'])
+@basic_auth.required
+def apagar_documento_admin(request_id):
+    doc = db.session.get(Documento, request_id)
+    if not doc: return jsonify({"sucesso": False, "erro": "Doc não encontrado."}), 404
+    if doc.status != 'pending': return jsonify({"sucesso": False, "erro": "Não pode apagar documentos já assinados."}), 400
+    
+    pending_path = os.path.join(app.config['PENDING_FOLDER'], request_id)
+    import shutil
+    if os.path.exists(pending_path): shutil.rmtree(pending_path)
+    
+    db.session.delete(doc)
+    db.session.commit()
+    return jsonify({"sucesso": True})
+
+@app.route('/api/admin/campanhas/<campanha_id>/template-vars', methods=['GET'])
+@basic_auth.required
+def get_template_vars(campanha_id):
+    camp = db.session.get(Campanha, campanha_id)
+    tpl = db.session.get(TemplateDocumento, camp.template_id)
+    vars_mapped = list(set([campo.get('name') for campo in tpl.fields_mapping]))
+    return jsonify({"vars": vars_mapped})
+
+@app.route('/api/admin/campanhas/<campanha_id>/add-participante', methods=['POST'])
+@basic_auth.required
+def add_participante_campanha(campanha_id):
+    camp = db.session.get(Campanha, campanha_id)
+    if not camp: return jsonify({"sucesso": False, "erro": "Campanha não encontrada"}), 404
+    tpl = db.session.get(TemplateDocumento, camp.template_id)
+    template_pdf_path = os.path.join(app.config['TEMPLATES_DYNAMIC_FOLDER'], tpl.id, tpl.original_filename)
+    if not os.path.exists(template_pdf_path):
+         return jsonify({"sucesso": False, "erro": f"Arquivo PDF base não encontrado: {template_pdf_path}"}), 500
+    
+    row = request.json
+    cpf = ''.join(filter(str.isdigit, str(row.get('cpf', ''))))
+    telefone = ''.join(filter(str.isdigit, str(row.get('telefone', '') or row.get('whatsapp', ''))))
+    nome = row.get('nome', 'Participante')
+    if not cpf: return jsonify({"sucesso": False, "erro": "CPF é obrigatório"}), 400
+    
+    request_id = str(uuid.uuid4())
+    pending_path = os.path.join(app.config['PENDING_FOLDER'], request_id)
+    os.makedirs(pending_path, exist_ok=True)
+    final_pdf_name = f"campanha_{camp.id}_{request_id}.pdf"
+    output_pdf_path = os.path.join(pending_path, final_pdf_name)
+    
+    try:
+        template_reader = PdfReader(open(template_pdf_path, "rb"))
+        output_writer = PdfWriter()
+        fields_by_page = {}
+        for campo_map in (tpl.fields_mapping or []):
+            pg = campo_map.get('page', 0)
+            if pg not in fields_by_page: fields_by_page[pg] = []
+            fields_by_page[pg].append(campo_map)
+            
+        for page_num in range(len(template_reader.pages)):
+            page_obj = template_reader.pages[page_num]
+            if page_num in fields_by_page:
+                packet = io.BytesIO()
+                w, h = float(page_obj.mediabox.width), float(page_obj.mediabox.height)
+                c = canvas.Canvas(packet, pagesize=(w, h))
+                c.setFont("Helvetica", 11)
+                
+                for campo_map in fields_by_page[page_num]:
+                    var_name = campo_map.get('name')
+                    # check dict dynamically in ignorecase
+                    val = next((v for k,v in row.items() if k.lower() == var_name.lower()), '')
+                    x_pos = (campo_map.get('x_percent', 0) / 100) * w
+                    y_pos = h - ((campo_map.get('y_percent', 0) / 100) * h)
+                    c.drawString(x_pos, y_pos - 4, str(val))
+                c.save(); packet.seek(0)
+                overlay_pdf = PdfReader(packet)
+                page_obj.merge_page(overlay_pdf.pages[0])
+            output_writer.add_page(page_obj)
+
+        with open(output_pdf_path, "wb") as f: output_writer.write(f)
+        
+        new_doc = Documento(
+            request_id=request_id, signer_name=nome,
+            signer_cpf=cpf, signer_phone=telefone,
+            doc_data=row, original_filename=final_pdf_name, 
+            original_hash=calculate_hash(output_pdf_path),
+            campanha_id=camp.id, whatsapp_status='Pausado'
+        )
+        db.session.add(new_doc)
+        db.session.commit()
+        return jsonify({"sucesso": True})
+    except Exception as e:
+        return jsonify({"sucesso": False, "erro": str(e)}), 500
+
 # --- Rotas do Processo de Assinatura ---
+
+
 @app.route('/sign/<request_id>', methods=['GET'])
 def sign_document(request_id):
     doc = db.session.get(Documento, request_id)
@@ -333,7 +965,8 @@ def sign_document(request_id):
                            request_id=request_id, 
                            document_images=image_paths, 
                            signer_name=doc.signer_name, 
-                           masked_cpf=mask_cpf(doc.signer_cpf))
+                           masked_cpf=mask_cpf(doc.signer_cpf),
+                           is_campanha=bool(doc.campanha_id))
 
 @app.route('/pending/<request_id>/<filename>')
 def get_pending_file(request_id, filename):
@@ -406,7 +1039,13 @@ def submit_signature(request_id):
 
 @app.route('/success')
 def success():
-    return render_template('success.html', filename=request.args.get('filename'))
+    filename = request.args.get('filename')
+    doc = None
+    if filename:
+        orig = filename.replace('signed_', '')
+        doc = Documento.query.filter_by(original_filename=orig).first()
+    is_campanha = doc and bool(doc.campanha_id)
+    return render_template('success.html', filename=filename, is_campanha=is_campanha)
 
 @app.route('/download/<path:filename>')
 def download_file(filename):
@@ -445,6 +1084,60 @@ def get_logs():
 
 
 
+
+def whatsapp_queue_worker():
+    while True:
+        try:
+            with app.app_context():
+                doc = Documento.query.filter_by(whatsapp_status='Pendente').first()
+                if doc:
+                    telefone = ''.join(filter(str.isdigit, str(doc.signer_phone)))
+                    if not telefone:
+                        doc.whatsapp_status = 'Erro'
+                        db.session.commit()
+                        continue
+                        
+                    logging.info(f"[FILA WA] Proc: {telefone} | DOC: {doc.request_id}")
+                    
+                    if doc.campanha_id:
+                        auth_link = f"https://assign.tec.br/campanha/auth/{doc.request_id}"
+                        descricao = f"Aviso! Você tem um novo documento para assinar. Acesse o portal seguro e informe seu CPF: {auth_link}"
+                    else:
+                        auth_link = f"https://assign.tec.br/sign/{doc.request_id}"
+                        descricao = f"Aviso! Há um documento pendente para sua assinatura: {auth_link}"
+                    
+                    base_url = "https://webatende.coopedu.com.br:3000/api/crm/notify/"
+                    params = {
+                        "titulo": "📢 *AVISO - COOPEDU*",
+                        "descricao": descricao,
+                        "etapa": "Aguardando Assinatura",
+                        "numero": telefone
+                    }
+                    
+                    try:
+                        response = requests.post(base_url, params=params, timeout=12)
+                        if response.status_code == 200:
+                            doc.whatsapp_status = 'Enviado'
+                            logging.info(f"[FILA WA] SUCESSO enviado para {telefone}")
+                        else:
+                            doc.whatsapp_attempts += 1
+                            doc.whatsapp_status = 'Erro' if doc.whatsapp_attempts >= 3 else 'Pendente'
+                    except Exception as req_e:
+                        doc.whatsapp_attempts += 1
+                        doc.whatsapp_status = 'Erro' if doc.whatsapp_attempts >= 3 else 'Pendente'
+                        logging.error(f"[FILA WA] Falha API requests: {str(req_e)}")
+                    
+                    db.session.commit()
+            time.sleep(10) # Intervalo seguro
+        except Exception as e:
+            logging.error(f"[FILA WA] Erro Crítico no Worker: {str(e)}")
+            time.sleep(10)
+
 if __name__ == '__main__':
     with app.app_context(): db.create_all() 
-    app.run(debug=True, port=5001)
+    
+    # Iniciar fila limpa em thread daemon
+    wa_thread = threading.Thread(target=whatsapp_queue_worker, daemon=True)
+    wa_thread.start()
+    
+    app.run(debug=True, port=5001, use_reloader=False) # Disable reloader when using threads to prevent dual workers

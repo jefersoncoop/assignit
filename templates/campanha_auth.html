@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Acesso Seguro - AssignIt</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background-color: #f4f7f6;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        .auth-container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            max-width: 400px;
+            width: 100%;
+        }
+
+        .auth-container h2 {
+            color: #333;
+            margin-top: 0;
+        }
+
+        .auth-container p {
+            color: #666;
+            font-size: 0.9em;
+            margin-bottom: 20px;
+        }
+
+        .form-group {
+            text-align: left;
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: #444;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+
+        .btn {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 12px;
+            width: 100%;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 1em;
+        }
+
+        .btn:hover {
+            background: #0056b3;
+        }
+
+        #step2 {
+            display: none;
+        }
+
+        .error-message {
+            color: #dc3545;
+            font-size: 0.85em;
+            margin-top: 5px;
+            display: none;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="auth-container">
+        <h2>Atualização de dados</h2>
+
+        <div id="step1">
+            <p>Por favor, informe seu CPF para continuar.</p>
+            <div class="form-group">
+                <label>Seu CPF</label>
+                <input type="text" id="cpfInput" placeholder="Digite apenas números" maxlength="14"
+                    onkeydown="if(event.key === 'Enter') validateCpf()">
+                <div id="cpfError" class="error-message">CPF incorreto. Tente novamente.</div>
+            </div>
+            <button class="btn" onclick="validateCpf()" id="btnCpf">Continuar</button>
+        </div>
+
+        <div id="step2">
+            <p>CPF confirmado! Para continuarmos, atualize ou confirme seu número de celular com DDD.</p>
+            <div class="form-group">
+                <label>Telefone / WhatsApp</label>
+                <input type="text" id="phoneInput" placeholder="Ex: 11999999999" maxlength="15"
+                    onkeydown="if(event.key === 'Enter') savePhone()">
+                <div id="phoneError" class="error-message">Telefone inválido.</div>
+            </div>
+            <button class="btn" onclick="savePhone()" id="btnPhone">Continuar</button>
+        </div>
+    </div>
+
+    <script>
+        let requestId = '{{ request_id }}';
+        const campanhaId = '{{ campanha_id }}';
+
+        async function validateCpf() {
+            const cpf = document.getElementById('cpfInput').value;
+            if (cpf.length < 11) {
+                document.getElementById('cpfError').innerText = "Digite um CPF válido com 11 dígitos.";
+                document.getElementById('cpfError').style.display = 'block';
+                return;
+            }
+
+            document.getElementById('btnCpf').innerText = "Verificando...";
+            document.getElementById('btnCpf').disabled = true;
+
+            try {
+                const res = await fetch('/api/campanha/auth/validar', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ request_id: requestId, campanha_id: campanhaId, cpf: cpf })
+                });
+                const data = await res.json();
+
+                if (data.sucesso) {
+                    if (data.status === 'signed') {
+                        alert('Você já realizou a atualização cadastral!');
+                        window.location.href = data.redirect_url;
+                        return;
+                    }
+                    requestId = data.request_id; // Set dynamically resolved request_id
+                    document.getElementById('step1').style.display = 'none';
+                    document.getElementById('step2').style.display = 'block';
+                    document.getElementById('cpfError').style.display = 'none';
+                } else {
+                    document.getElementById('cpfError').style.display = 'block';
+                    document.getElementById('cpfError').innerText = data.erro;
+                }
+            } catch (e) {
+                alert('Falha na comunicação.');
+            } finally {
+                document.getElementById('btnCpf').innerText = "Continuar";
+                document.getElementById('btnCpf').disabled = false;
+            }
+        }
+
+        async function savePhone() {
+            const phone = document.getElementById('phoneInput').value;
+            if (phone.length < 10) return;
+
+            document.getElementById('btnPhone').innerText = "Acessando...";
+            document.getElementById('btnPhone').disabled = true;
+
+            try {
+                const res = await fetch('/api/campanha/auth/telefone', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ request_id: requestId, telefone: phone })
+                });
+                const data = await res.json();
+
+                if (data.sucesso) {
+                    window.location.href = data.redirect_url;
+                } else {
+                    document.getElementById('phoneError').style.display = 'block';
+                }
+            } catch (e) {
+                alert('Falha na comunicação.');
+            } finally {
+                document.getElementById('btnPhone').innerText = "Ir para o Documento";
+                document.getElementById('btnPhone').disabled = false;
+            }
+        }
+    </script>
+</body>
+
+</html>

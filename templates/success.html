@@ -1,26 +1,74 @@
 <!DOCTYPE html>
 <html lang="pt-br">
+
 <head>
     <meta charset="UTF-8">
     <title>Sucesso!</title>
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; text-align: center; margin-top: 100px; background-color: #f4f7f9; }
-        .container { max-width: 600px; margin: auto; background: #fff; padding: 2rem; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
-        h1 { color: #28a745; }
-        p { color: #666; font-size: 1.1rem; }
-        .download-button { display: inline-block; margin-top: 1.5rem; padding: 12px 25px; background-color: #007bff; color: white; text-decoration: none; border-radius: 5px; font-weight: bold; transition: background-color 0.2s ease; }
-        .download-button:hover { background-color: #0056b3; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            text-align: center;
+            margin-top: 100px;
+            background-color: #f4f7f9;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: auto;
+            background: #fff;
+            padding: 2rem;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            color: #28a745;
+        }
+
+        p {
+            color: #666;
+            font-size: 1.1rem;
+        }
+
+        .download-button {
+            display: inline-block;
+            margin-top: 1.5rem;
+            padding: 12px 25px;
+            background-color: #007bff;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            font-weight: bold;
+            transition: background-color 0.2s ease;
+        }
+
+        .download-button:hover {
+            background-color: #0056b3;
+        }
     </style>
 </head>
+
 <body>
     <div class="container">
+        {% if is_campanha %}
+        <h1>Atualização Cadastral Concluída</h1>
+        <p>O termo de ciência foi assinado com sucesso!</p>
+        <a href="https://coopedu.com.br" class="download-button"
+            style="background-color: #28a745; font-size: 1.5rem; display:block; max-width: 250px; margin: 20px auto;">Sair!</a>
+        {% if filename %}
+        <a href="{{ url_for('download_file', filename=filename) }}"
+            style="color: #6c757d; font-size: 0.8rem; text-decoration: underline;">Baixar documento</a>
+        {% endif %}
+        {% else %}
         <h1>Assinatura Concluída!</h1>
         <p>O documento foi assinado com sucesso e a trilha de auditoria foi registrada.</p>
         {% if filename %}
-            <a href="{{ url_for('download_file', filename=filename) }}" class="download-button">
-                Baixar Documento Assinado
-            </a>
+        <a href="{{ url_for('download_file', filename=filename) }}" class="download-button">
+            Baixar Documento Assinado
+        </a>
+        {% endif %}
         {% endif %}
     </div>
 </body>
+
 </html>

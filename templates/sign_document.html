@@ -169,6 +169,7 @@
                 </div>
             </div>
 
+            {% if not is_campanha %}
             <div id="step-2" class="step">
                 <h2>Revise o Documento</h2>
                 <p>Leia atentamente o documento abaixo antes de prosseguir para a assinatura.</p>
@@ -181,6 +182,7 @@
                     <button type="button" class="btn btn-primary" id="btn-to-step-3">Avançar</button>
                 </div>
             </div>
+            {% endif %}
 
             <div id="step-3" class="step">
                 <h2>Faça sua Assinatura</h2>
@@ -228,10 +230,15 @@
         termsCheckbox.addEventListener('change', () => {
             btnToStep2.disabled = !termsCheckbox.checked;
         });
+        
+        {% if is_campanha %}
+        btnToStep2.addEventListener('click', () => showStep(3));
+        {% else %}
         btnToStep2.addEventListener('click', () => showStep(2));
-
+        
         // --- Lógica da Etapa 2 ---
         document.getElementById('btn-to-step-3').addEventListener('click', () => showStep(3));
+        {% endif %}
 
         // --- Lógica da Etapa 3 ---
         const canvas = document.getElementById('signature-pad');

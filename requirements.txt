@@ -1,8 +1,12 @@
 blinker==1.9.0
+certifi==2026.2.25
 charset-normalizer==3.4.4
 click==8.3.0
 Flask==3.1.2
+Flask-BasicAuth==0.2.0
+flask-cors==6.0.2
 Flask-SQLAlchemy==3.1.1
+idna==3.11
 itsdangerous==2.2.0
 Jinja2==3.1.6
 MarkupSafe==3.0.3
@@ -12,6 +16,8 @@ pillow==11.3.0
 PyMuPDF==1.26.5
 PyPDF2==3.0.1
 reportlab==4.4.4
+requests==2.33.1
 SQLAlchemy==2.0.44
 typing_extensions==4.15.0
+urllib3==2.6.3
 Werkzeug==3.1.3

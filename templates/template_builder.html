@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Criador de Modelo Dinâmico - AssignIt</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f8f9fa; margin: 0; padding: 20px; }
+        .container { max-width: 1200px; margin: auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #dee2e6; padding-bottom: 10px; margin-bottom: 20px; }
+        .btn { padding: 8px 15px; border: none; border-radius: 4px; cursor: pointer; text-decoration: none; font-weight: bold; }
+        .btn-primary { background: #007bff; color: white; }
+        .btn-success { background: #28a745; color: white; }
+        .btn-danger { background: #dc3545; color: white; }
+        .btn-secondary { background: #6c757d; color: white; }
+        .btn:hover { opacity: 0.9; }
+        .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+        
+        /* Layout Principal */
+        .builder-layout { display: flex; gap: 20px; }
+        .sidebar { width: 300px; background: #f1f3f5; padding: 15px; border-radius: 8px; display: flex; flex-direction: column; gap: 15px; }
+        .main-editor { flex: 1; background: #e9ecef; border-radius: 8px; display: flex; flex-direction: column; align-items: center; padding: 20px; overflow: hidden; }
+        
+        /* Controles de Formulário */
+        .form-group { display: flex; flex-direction: column; gap: 5px; }
+        .form-group label { font-weight: bold; font-size: 0.9em; }
+        .form-group input { padding: 8px; border: 1px solid #ced4da; border-radius: 4px; }
+        
+        /* Área da Imagem */
+        .image-container { position: relative; border: 1px solid #ccc; box-shadow: 0 4px 8px rgba(0,0,0,0.2); background: white; margin-top: 10px; cursor: crosshair; }
+        .image-container img { max-width: 100%; display: block; user-select: none; }
+        .marker { position: absolute; background: rgba(0, 123, 255, 0.85); color: #fff; border-radius: 3px; font-size: 11px; padding: 3px 6px; pointer-events: none; transform: translate(0, -100%); white-space: nowrap; font-family: monospace; }
+        
+        /* Lista de Variáveis */
+        .var-list { list-style: none; padding: 0; margin: 0; max-height: 400px; overflow-y: auto; }
+        .var-item { background: white; padding: 10px; margin-bottom: 8px; border-radius: 4px; border-left: 4px solid #007bff; display: flex; justify-content: space-between; align-items: center; font-size: 0.9em; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .var-item button { background: none; border: none; color: #dc3545; cursor: pointer; font-weight: bold; }
+        
+        /* Paginação */
+        .pagination { display: flex; gap: 10px; align-items: center; margin-top: 15px; }
+        
+        /* Loader */
+        .loader { display: none; margin-top: 10px; color: #007bff; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <h2>Criador de Modelo Dinâmico</h2>
+        <a href="/admin" class="btn btn-secondary">← Voltar para Dashboard</a>
+    </div>
+
+    <div class="builder-layout">
+        <!-- Barra Lateral Dinâmica -->
+        <div class="sidebar">
+            <div id="step1">
+                <h3>1. Configurar Arquivo</h3>
+                <div class="form-group">
+                    <label>Nome do Modelo (ex: Contrato PJ)</label>
+                    <input type="text" id="templateName" placeholder="Digite um nome...">
+                </div>
+                <div class="form-group" style="margin-top: 10px;">
+                    <label>Arquivo PDF Base</label>
+                    <input type="file" id="pdfFile" accept="application/pdf">
+                </div>
+                <button class="btn btn-primary" onclick="uploadPDF()" style="margin-top: 10px; width: 100%;">Carregar PDF</button>
+                <div class="loader" id="uploadLoader">Processando arquivo...</div>
+            </div>
+
+            <div id="step2" style="display: none; flex: 1; flex-direction: column;">
+                <h3>2. Variáveis</h3>
+                <p style="font-size: 0.85em; color: #666; margin-bottom: 10px;">Clique na página para adicionar uma variável na posição desejada (Ajustada pela linha de base).</p>
+                <ul class="var-list" id="varList">
+                    <!-- Itens renderizados aqui -->
+                </ul>
+                <div style="margin-top: auto; padding-top: 15px; border-top: 1px solid #ccc;">
+                    <button class="btn btn-success" onclick="saveTemplate()" style="width: 100%;">Salvar Modelo</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Editor Principal -->
+        <div class="main-editor">
+            <div id="editorPlaceholder" style="color: #666; margin-top: 50px;">
+                Faça o upload do PDF ao lado para começar.
+            </div>
+            
+            <div id="editorWorkspace" style="display: none; flex-direction: column; align-items: center; width: 100%;">
+                <div class="pagination">
+                    <button class="btn btn-secondary" id="btnPrevPage" onclick="changePage(-1)">Anterior</button>
+                    <span id="pageIndicator" style="font-weight: bold;">Página 1</span>
+                    <button class="btn btn-secondary" id="btnNextPage" onclick="changePage(1)">Próxima</button>
+                </div>
+                
+                <div class="image-container" id="imageContainer" onclick="handleImageClick(event)">
+                    <img id="pdfPageImage" src="" alt="Página do PDF">
+                    <div id="markersLayer"></div>
+                </div>
+                <p style="color: #666; font-size: 0.85em; margin-top: 15px;">Dica: Clique exatamente onde base do texto deve repousar.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="variableModal" style="display:none; position:fixed; top:50%; left:50%; transform:translate(-50%, -50%); background:white; padding:20px; border-radius:8px; box-shadow:0 10px 30px rgba(0,0,0,0.5); z-index:1000; width:300px;">
+    <h4 style="margin-top:0;">Nova Variável</h4>
+    <label style="font-size:0.9em; margin-bottom:5px; display:block;">Nome (ex: nome, cpf):</label>
+    <input type="text" id="variableNameInput" style="width:100%; padding:8px; margin-bottom:15px; border:1px solid #ced4da; border-radius:4px; box-sizing:border-box;" placeholder="Digite o nome..." onkeydown="if(event.key === 'Enter') confirmVariableModal()" autocomplete="off">
+    <div style="display:flex; justify-content:flex-end; gap:10px;">
+        <button class="btn btn-secondary" onclick="closeVariableModal()">Cancelar</button>
+        <button class="btn btn-primary" onclick="confirmVariableModal()">Adicionar</button>
+    </div>
+</div>
+<div id="modalOverlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.3); z-index:999;" onclick="closeVariableModal()"></div>
+
+<script>
+    let currentTempId = null;
+    let currentFilename = null;
+    let pages = [];
+    let currentPageIndex = 0;
+    
+    // Formato dos campos: { id: UUID, name: 'cpf', page: 0, x_percent: 50, y_percent: 50 }
+    let fields = [];
+
+    // Gerador de UUID rápido
+    function uuidv4() {
+        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+            var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+            return v.toString(16);
+        });
+    }
+
+    async function uploadPDF() {
+        const nameInput = document.getElementById('templateName').value;
+        const fileInput = document.getElementById('pdfFile').files[0];
+        
+        if (!nameInput || !fileInput) {
+            alert('Preencha o nome do modelo e selecione um PDF.');
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('documento', fileInput);
+        
+        document.getElementById('uploadLoader').style.display = 'block';
+
+        try {
+            const res = await fetch('/api/admin/template/upload', {
+                method: 'POST',
+                body: formData
+            });
+            const data = await res.json();
+            
+            if (data.sucesso) {
+                currentTempId = data.temp_id;
+                currentFilename = data.filename;
+                pages = data.images;
+                
+                document.getElementById('step1').style.display = 'none';
+                document.getElementById('step2').style.display = 'flex';
+                document.getElementById('editorPlaceholder').style.display = 'none';
+                document.getElementById('editorWorkspace').style.display = 'flex';
+                
+                renderPage(0);
+            } else {
+                alert('Erro: ' + data.erro);
+            }
+        } catch (e) {
+            alert('Falha na comunicação com o servidor.');
+        } finally {
+            document.getElementById('uploadLoader').style.display = 'none';
+        }
+    }
+
+    function renderPage(index) {
+        if (index < 0 || index >= pages.length) return;
+        currentPageIndex = index;
+        
+        document.getElementById('pageIndicator').innerText = `Página ${index + 1} de ${pages.length}`;
+        document.getElementById('pdfPageImage').src = pages[index].url;
+        
+        document.getElementById('btnPrevPage').disabled = (index === 0);
+        document.getElementById('btnNextPage').disabled = (index === pages.length - 1);
+        
+        renderMarkers();
+    }
+
+    function changePage(delta) {
+        renderPage(currentPageIndex + delta);
+    }
+
+    let pendingFieldContext = null;
+
+    function handleImageClick(evt) {
+        const imgContainer = document.getElementById('imageContainer');
+        const img = document.getElementById('pdfPageImage');
+        
+        // Coordenadas relativas à imagem
+        const rect = img.getBoundingClientRect();
+        
+        // Se clicar fora da imagem em si, ignora
+        if (evt.clientX < rect.left || evt.clientX > rect.right || evt.clientY < rect.top || evt.clientY > rect.bottom) {
+            return;
+        }
+
+        const xPx = evt.clientX - rect.left;
+        const yPx = evt.clientY - rect.top;
+        
+        const xPercent = (xPx / rect.width) * 100;
+        const yPercent = (yPx / rect.height) * 100;
+
+        pendingFieldContext = { page: currentPageIndex, x: xPercent, y: yPercent };
+        
+        document.getElementById('variableNameInput').value = '';
+        document.getElementById('modalOverlay').style.display = 'block';
+        document.getElementById('variableModal').style.display = 'block';
+        
+        setTimeout(() => document.getElementById('variableNameInput').focus(), 100);
+    }
+    
+    function closeVariableModal() {
+        document.getElementById('variableModal').style.display = 'none';
+        document.getElementById('modalOverlay').style.display = 'none';
+        pendingFieldContext = null;
+    }
+
+    function confirmVariableModal() {
+        const varName = document.getElementById('variableNameInput').value;
+        if (!varName || varName.trim() === '') {
+            alert('Por favor, informe o nome da variável.');
+            document.getElementById('variableNameInput').focus();
+            return;
+        }
+        
+        if (pendingFieldContext) {
+            const sanitizedVarName = varName.trim().toLowerCase().replace(/\s+/g, '_');
+            const newField = {
+                id: uuidv4(),
+                name: sanitizedVarName,
+                page: pendingFieldContext.page,
+                x_percent: pendingFieldContext.x,
+                y_percent: pendingFieldContext.y
+            };
+            fields.push(newField);
+            renderSidebar();
+            renderMarkers();
+        }
+        closeVariableModal();
+    }
+
+    function renderMarkers() {
+        const layer = document.getElementById('markersLayer');
+        layer.innerHTML = '';
+        
+        // Filtrar apenas os campos da página atual
+        const pageFields = fields.filter(f => f.page === currentPageIndex);
+        
+        pageFields.forEach(f => {
+            const el = document.createElement('div');
+            el.className = 'marker';
+            el.innerText = `{${f.name}}`;
+            el.style.left = `${f.x_percent}%`;
+            el.style.top = `${f.y_percent}%`;
+            layer.appendChild(el);
+        });
+    }
+
+    function renderSidebar() {
+        const list = document.getElementById('varList');
+        list.innerHTML = '';
+        
+        // Ordenar por página
+        const sortedFields = [...fields].sort((a,b) => a.page !== b.page ? a.page - b.page : a.name.localeCompare(b.name));
+
+        sortedFields.forEach(f => {
+            const li = document.createElement('li');
+            li.className = 'var-item';
+            li.innerHTML = `
+                <div>
+                    <strong>${f.name}</strong> <br>
+                    <small style="color: #666;">Pág. ${f.page + 1}</small>
+                </div>
+                <button onclick="removeField('${f.id}')" title="Remover variável">X</button>
+            `;
+            list.appendChild(li);
+        });
+    }
+
+    function removeField(id) {
+        fields = fields.filter(f => f.id !== id);
+        renderSidebar();
+        renderMarkers();
+    }
+
+    async function saveTemplate() {
+        const nameInput = document.getElementById('templateName').value;
+        if (!nameInput || !currentTempId) {
+            alert("Atenção: Nome ou Template ID ausente.");
+            return;
+        }
+
+        if (fields.length === 0) {
+            if (!confirm("Você não adicionou nenhuma variável. Deseja salvar o modelo vazio?")) {
+                return;
+            }
+        }
+
+        const payload = {
+            name: nameInput,
+            temp_id: currentTempId,
+            filename: currentFilename,
+            fields: fields.map(f => ({
+                name: f.name,
+                page: f.page,
+                x_percent: f.x_percent,
+                y_percent: f.y_percent
+            }))
+        };
+
+        try {
+            const res = await fetch('/api/admin/template/save', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+
+            if (data.sucesso) {
+                alert("Modelo dinâmico gerado com sucesso!");
+                window.location.href = "/admin"; // Volta pro dashboard
+            } else {
+                alert("Erro ao salvar: " + data.erro);
+            }
+        } catch (e) {
+            alert('Falha na comunicação com o servidor. A conexão pode ter sido perdida.');
+        }
+    }
+</script>
+
+</body>
+</html>
