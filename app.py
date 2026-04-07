@@ -21,6 +21,7 @@ import logging
 import csv
 import threading
 import time
+import fcntl
 from PIL import Image
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter
@@ -681,44 +682,46 @@ def background_campaign_processor(app_ctx):
         try:
             with app_ctx:
                 # Busca documentos que ainda precisam de PDF
-                docs_to_generate = Documento.query.filter_by(status='generating').limit(50).all()
+                # Marcamos como 'processing' para evitar que outros workers (se houver) peguem o mesmo
+                doc = Documento.query.filter_by(status='generating').first()
                 
-                if not docs_to_generate:
-                    time.sleep(10)
-                    continue
-                
-                logging.info(f"[BG PDF] Processando lote de {len(docs_to_generate)} documentos pendentes de geração.")
-                
-                for doc in docs_to_generate:
+                if not doc:
+                    # Nada para gerar, solta o contexto e dorme
+                    pass
+                else:
+                    # Marca como processando imediatamente
+                    doc.status = 'processing'
+                    db.session.commit()
+                    
+                    logging.info(f"[BG PDF] Iniciando geração do documento: {doc.request_id}")
                     try:
                         camp = db.session.get(Campanha, doc.campanha_id)
-                        if not camp:
-                            doc.status = 'error_no_campaign'
-                            db.session.commit()
-                            continue
+                        tpl = db.session.get(TemplateDocumento, camp.template_id) if camp else None
                         
-                        tpl = db.session.get(TemplateDocumento, camp.template_id)
                         if not tpl:
-                            doc.status = 'error_no_template'
+                            doc.status = 'error_config'
                             db.session.commit()
-                            continue
+                        else:
+                            p_path = os.path.join(app.config['PENDING_FOLDER'], doc.request_id)
+                            os.makedirs(p_path, exist_ok=True)
+                            out_path = os.path.join(p_path, doc.original_filename)
                             
-                        p_path = os.path.join(app.config['PENDING_FOLDER'], doc.request_id)
-                        os.makedirs(p_path, exist_ok=True)
-                        out_path = os.path.join(p_path, doc.original_filename)
-                        
-                        # Gera o PDF usando os dados salvos no doc_data
-                        h = gerar_pdf_para_campanha(tpl, doc.doc_data, out_path)
-                        
-                        doc.original_hash = h
-                        doc.status = 'pending' # PDF pronto para assinatura
-                        db.session.commit()
+                            h = gerar_pdf_para_campanha(tpl, doc.doc_data, out_path)
+                            doc.original_hash = h
+                            doc.status = 'pending'
+                            db.session.commit()
+                            logging.info(f"[BG PDF] SUCESSO: {doc.request_id}")
                     except Exception as e:
                         logging.error(f"[BG PDF] Erro no doc {doc.request_id}: {str(e)}")
                         doc.status = 'error_generating'
                         db.session.commit()
             
-            time.sleep(1) # Pequena pausa entre lotes
+            # Se não tinha nada, dorme 10s. Se processou um, dorme 0.1s para agilidade
+            if not doc:
+                time.sleep(10)
+            else:
+                time.sleep(0.1)
+                
         except Exception as e:
             logging.error(f"[BG PDF] Erro crítico no worker: {str(e)}")
             time.sleep(10)
@@ -1230,15 +1233,31 @@ def whatsapp_queue_worker():
             logging.error(f"[FILA WA] Erro Crítico no Worker: {str(e)}")
             time.sleep(10)
 
+def iniciar_workers_seguros():
+    """Tenta iniciar as threads apenas se for o processo 'líder' no servidor."""
+    try:
+        # Usamos um arquivo de lock no /tmp/ para garantir que apenas 1 processo do Gunicorn rode as threads
+        f = open('/tmp/assinatura_worker.lock', 'w')
+        fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        
+        # Guardamos a referência do arquivo para o lock não ser liberado pelo GC
+        app.config['WORKER_LOCK_FILE'] = f
+        
+        logging.info("[WORKER] Este processo assumiu a liderança das threads de background.")
+        
+        # Iniciar fila de WhatsApp
+        threading.Thread(target=whatsapp_queue_worker, daemon=True).start()
+        
+        # Iniciar fila de PDF
+        threading.Thread(target=background_campaign_processor, args=(app.app_context(),), daemon=True).start()
+        
+    except (IOError, OSError):
+        # Falhou em pegar o lock, outro worker já é o master
+        logging.info("[WORKER] Outro processo já está gerenciando as threads de background.")
+
+# Iniciar workers automaticamente ao carregar o app (Gunicorn chamará isso)
+with app.app_context(): iniciar_workers_seguros()
+
 if __name__ == '__main__':
     with app.app_context(): db.create_all() 
-    
-    # Iniciar fila limpa em thread daemon
-    wa_thread = threading.Thread(target=whatsapp_queue_worker, daemon=True)
-    wa_thread.start()
-    
-    # Iniciar worker de geração de PDFs resiliante
-    pdf_thread = threading.Thread(target=background_campaign_processor, args=(app.app_context(),), daemon=True)
-    pdf_thread.start()
-    
-    app.run(debug=True, port=5001, use_reloader=False) # Disable reloader when using threads to prevent dual workers
+    app.run(debug=True, port=5001, use_reloader=False)
