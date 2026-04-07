@@ -129,11 +129,27 @@ def enviar_notificacao_whatsapp(nome, cpf, link, etapa, numero, request_id):
     try:
         telefone = ''.join(filter(str.isdigit, str(numero)))
         
+        # Verifica se é uma campanha para personalizar o texto
+        is_campanha = False
+        if request_id:
+            with app.app_context():
+                from sqlalchemy import text
+                # Busca rápida para evitar overhead
+                doc = Documento.query.filter_by(request_id=request_id).first()
+                if doc and doc.campanha_id:
+                    is_campanha = True
+
         # Formata a descrição
         if etapa == "Concluído":
-            descricao = f"Assinatura Concluída! {nome} Seu documento já está disponível. Download: {link}"
+            if is_campanha:
+                descricao = f"Tudo pronto, *{nome}*! Sua *Atualização Cadastral* foi concluída com sucesso. ✅\n\nVocê pode baixar seu comprovante aqui: {link}\n\nA Coopedu agradece sua cooperação! 🚀"
+            else:
+                descricao = f"Assinatura Concluída! {nome} Seu documento já está disponível. Download: {link}"
         else:
-            descricao = f"Solicitação de desligamento recebida! {nome} - CPF: {cpf} Link para assinatura: {link}"
+            if is_campanha:
+                descricao = f"Olá, *{nome}*! Identificamos que você tem um documento pendente para a sua *Atualização Cadastral* na Coopedu. 📄✨\n\nAssine agora de forma rápida pelo nosso portal seguro: {link}"
+            else:
+                descricao = f"Solicitação de desligamento recebida! {nome} - CPF: {cpf} Link para assinatura: {link}"
 
         base_url = "https://webatende.coopedu.com.br:3000/api/crm/notify/"
         params = {
@@ -1101,7 +1117,7 @@ def whatsapp_queue_worker():
                     
                     if doc.campanha_id:
                         auth_link = f"https://assign.tec.br/campanha/auth/{doc.request_id}"
-                        descricao = f"Aviso! Você tem um novo documento para assinar. Acesse o portal seguro e informe seu CPF: {auth_link}"
+                        descricao = f"Olá, *{doc.signer_name}*! Identificamos que você tem um documento pendente para a sua *Atualização Cadastral* na Coopedu. 📄✨\n\nAssine agora de forma rápida pelo nosso portal seguro: {auth_link}"
                     else:
                         auth_link = f"https://assign.tec.br/sign/{doc.request_id}"
                         descricao = f"Aviso! Há um documento pendente para sua assinatura: {auth_link}"
