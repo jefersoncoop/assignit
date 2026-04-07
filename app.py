@@ -119,6 +119,46 @@ def calculate_hash(filepath):
             sha256_hash.update(byte_block)
     return sha256_hash.hexdigest()
 
+def gerar_pdf_para_campanha(tpl, row_data, output_path):
+    """Função auxiliar para mesclar dados de uma linha no PDF do template."""
+    template_pdf_path = os.path.join(app.config['TEMPLATES_DYNAMIC_FOLDER'], tpl.id, tpl.original_filename)
+    if not os.path.exists(template_pdf_path):
+        raise FileNotFoundError(f"Template PDF não encontrado em {template_pdf_path}")
+        
+    template_reader = PdfReader(open(template_pdf_path, "rb"))
+    output_writer = PdfWriter()
+    fields_by_page = {}
+    mapping = tpl.fields_mapping if tpl.fields_mapping else []
+    for campo_map in mapping:
+        pg = campo_map.get('page', 0)
+        if pg not in fields_by_page: fields_by_page[pg] = []
+        fields_by_page[pg].append(campo_map)
+        
+    for page_num in range(len(template_reader.pages)):
+        page_obj = template_reader.pages[page_num]
+        if page_num in fields_by_page:
+            packet = io.BytesIO()
+            w = float(page_obj.mediabox.width)
+            h = float(page_obj.mediabox.height)
+            c = canvas.Canvas(packet, pagesize=(w, h))
+            c.setFont("Helvetica", 11)
+            
+            for campo_map in fields_by_page[page_num]:
+                var_name = campo_map.get('name')
+                # Procura no row_data ignorando case
+                val = next((v for k,v in row_data.items() if k.lower() == var_name.lower()), '')
+                if val is None: val = ''
+                x_pos = (campo_map.get('x_percent', 0) / 100) * w
+                y_pos = h - ((campo_map.get('y_percent', 0) / 100) * h)
+                c.drawString(x_pos, y_pos - 4, str(val))
+            c.save(); packet.seek(0)
+            overlay_pdf = PdfReader(packet)
+            page_obj.merge_page(overlay_pdf.pages[0])
+        output_writer.add_page(page_obj)
+
+    with open(output_path, "wb") as f: output_writer.write(f)
+    return calculate_hash(output_path)
+
 logging.basicConfig(
     filename=os.path.join(os.path.dirname(os.path.abspath(__file__)), 'whatsapp_integration.log'),
     level=logging.INFO,
@@ -607,6 +647,54 @@ def baixar_template_csv(template_id):
         "Content-type": "text/csv; charset=utf-8"
     }
 
+def background_campaign_processor(app_ctx, camp_id, rows_to_process):
+    """Thread que processa as linhas do CSV e gera os PDFs em segundo plano."""
+    with app_ctx:
+        camp = db.session.get(Campanha, camp_id)
+        if not camp: return
+        tpl = db.session.get(TemplateDocumento, camp.template_id)
+        if not tpl: return
+        
+        logging.info(f"[BG CAMPANHA] Iniciando processamento de {len(rows_to_process)} linhas para a campanha {camp_id}")
+        
+        for row in rows_to_process:
+            try:
+                cpf_key = next((k for k in row.keys() if k and k.strip().lower() == 'cpf'), None)
+                if not cpf_key: continue
+                cpf = ''.join(filter(str.isdigit, str(row[cpf_key])))
+                
+                telefone_key = next((k for k in row.keys() if k and k.strip().lower() in ['telefone', 'whatsapp', 'celular', 'phone']), None)
+                tel = ''.join(filter(str.isdigit, str(row[telefone_key]))) if telefone_key else ''
+                
+                nome_key = next((k for k in row.keys() if k and k.strip().lower() == 'nome'), None)
+                nome = str(row[nome_key]).strip() if nome_key else 'Participante'
+                
+                if not cpf: continue
+                
+                req_id = str(uuid.uuid4())
+                p_path = os.path.join(app.config['PENDING_FOLDER'], req_id)
+                os.makedirs(p_path, exist_ok=True)
+                pdf_name = f"campanha_{camp_id}_{req_id}.pdf"
+                out_path = os.path.join(p_path, pdf_name)
+                
+                # Gera o PDF
+                h = gerar_pdf_para_campanha(tpl, row, out_path)
+                
+                new_doc = Documento(
+                    request_id=req_id, signer_name=nome,
+                    signer_cpf=cpf, signer_phone=tel,
+                    doc_data=row, original_filename=pdf_name, 
+                    original_hash=h,
+                    campanha_id=camp_id, whatsapp_status='Pausado'
+                )
+                db.session.add(new_doc)
+                db.session.commit()
+            except Exception as e:
+                logging.error(f"[BG CAMPANHA] Erro na linha: {str(e)}")
+                db.session.rollback()
+        
+        logging.info(f"[BG CAMPANHA] Finalizado processamento da campanha {camp_id}")
+
 @app.route('/api/admin/campanhas/upload', methods=['POST'])
 @basic_auth.required
 def upload_campanhas_csv():
@@ -616,109 +704,48 @@ def upload_campanhas_csv():
         return jsonify({"sucesso": False, "erro": "Dados incompletos"}), 400
         
     tpl = db.session.get(TemplateDocumento, template_id)
-    if not tpl: return jsonify({"sucesso": False, "erro": "Template não encontrado."}), 404
-        
-    template_pdf_path = os.path.join(app.config['TEMPLATES_DYNAMIC_FOLDER'], tpl.id, tpl.original_filename)
-    if not os.path.exists(template_pdf_path):
-        return jsonify({"sucesso": False, "erro": "Arquivo PDF base do template ausente."}), 500
-
+    if not tpl: return jsonify({"sucesso": False, "erro": "Template não disponível."}), 404
+    
     camp_id = str(uuid.uuid4())
     new_campanha = Campanha(id=camp_id, name=nome, template_id=template_id)
     db.session.add(new_campanha)
+    db.session.commit()
     
     file = request.files['csv_file']
     raw_bytes = file.stream.read()
-    try:
-        text = raw_bytes.decode('utf-8-sig') # Remove unicode BOM if present
-    except UnicodeDecodeError:
-        text = raw_bytes.decode('latin-1')
+    try: text = raw_bytes.decode('utf-8-sig')
+    except: text = raw_bytes.decode('latin-1')
 
-    # Detect delimiter
     primeira_linha = text.split('\n')[0]
     delimiter = ';' if ';' in primeira_linha else ','
-    
     stream = io.StringIO(text, newline=None)
     csv_input = csv.DictReader(stream, delimiter=delimiter)
+    all_rows = [r for r in csv_input if r]
     
-    count = 0
-    for row in csv_input:
-        if not row: continue
-        
-        cpf_key = next((k for k in row.keys() if k and k.strip().lower() == 'cpf'), None)
-        if not cpf_key: continue
-        
-        cpf = str(row[cpf_key]).strip()
-        
-        # Phone logic (could be 'telefone' or 'whatsapp' or 'celular')
-        telefone_key = next((k for k in row.keys() if k and k.strip().lower() in ['telefone', 'whatsapp', 'celular', 'phone']), None)
-        telefone = str(row[telefone_key]).strip() if telefone_key else ''
-        
-        # Nome logic
-        nome_key = next((k for k in row.keys() if k and k.strip().lower() == 'nome'), None)
-        nome_linha = str(row[nome_key]).strip() if nome_key else 'Participante'
+    # Dispara thread de processamento
+    threading.Thread(target=background_campaign_processor, args=(app.app_context(), camp_id, all_rows)).start()
+    
+    return jsonify({"sucesso": True, "campanha_id": camp_id, "mensagem": f"Upload aceito! {len(all_rows)} registros sendo processados em segundo plano."})
 
-        
-        if not cpf: continue
-        
-        request_id = str(uuid.uuid4())
-        pending_path = os.path.join(app.config['PENDING_FOLDER'], request_id)
-        os.makedirs(pending_path, exist_ok=True)
-        final_pdf_name = f"campanha_{new_campanha.id}_{request_id}.pdf"
-        output_pdf_path = os.path.join(pending_path, final_pdf_name)
-        
-        try:
-            template_reader = PdfReader(open(template_pdf_path, "rb"))
-            output_writer = PdfWriter()
-            fields_by_page = {}
-            mapping = tpl.fields_mapping if tpl.fields_mapping else []
-            for campo_map in mapping:
-                pg = campo_map.get('page', 0)
-                if pg not in fields_by_page: fields_by_page[pg] = []
-                fields_by_page[pg].append(campo_map)
-                
-            for page_num in range(len(template_reader.pages)):
-                page_obj = template_reader.pages[page_num]
-                if page_num in fields_by_page:
-                    packet = io.BytesIO()
-                    w = float(page_obj.mediabox.width)
-                    h = float(page_obj.mediabox.height)
-                    c = canvas.Canvas(packet, pagesize=(w, h))
-                    c.setFont("Helvetica", 11)
-                    
-                    for campo_map in fields_by_page[page_num]:
-                        var_name = campo_map.get('name')
-                        val = row.get(var_name, '')
-                        if val is None: val = ''
-                        x_pct = campo_map.get('x_percent', 0)
-                        y_pct = campo_map.get('y_percent', 0)
-                        x_pos = (x_pct / 100) * w
-                        y_pos = h - ((y_pct / 100) * h)
-                        c.drawString(x_pos, y_pos - 4, str(val))
-                    c.save()
-                    packet.seek(0)
-                    overlay_pdf = PdfReader(packet)
-                    page_obj.merge_page(overlay_pdf.pages[0])
-                output_writer.add_page(page_obj)
-
-            with open(output_pdf_path, "wb") as f: output_writer.write(f)
-            original_hash = calculate_hash(output_pdf_path)
-            
-            new_doc = Documento(
-                request_id=request_id, signer_name=nome_linha,
-                signer_cpf=cpf, signer_phone=telefone,
-                doc_data=row, original_filename=final_pdf_name, 
-                original_hash=original_hash,
-                campanha_id=camp_id, whatsapp_status='Pausado'
-            )
-            db.session.add(new_doc)
-            count += 1
-            
-        except Exception as e:
-            logging.error(f"[CAMPANHA ERRO] Linha ignorada: {str(e)}")
-            continue
-
-    db.session.commit()
-    return jsonify({"sucesso": True, "campanha_id": new_campanha.id, "total": count})
+@app.route('/api/admin/campanhas/<campanha_id>/append-csv', methods=['POST'])
+@basic_auth.required
+def append_campanha_csv(campanha_id):
+    if 'csv_file' not in request.files: return jsonify({"sucesso": False, "erro": "Arquivo ausente"}), 400
+    camp = db.session.get(Campanha, campanha_id)
+    if not camp: return jsonify({"sucesso": False, "erro": "Campanha não existe"}), 404
+    
+    file = request.files['csv_file']
+    raw_bytes = file.stream.read()
+    try: text = raw_bytes.decode('utf-8-sig')
+    except: text = raw_bytes.decode('latin-1')
+    
+    delimiter = ';' if ';' in text.split('\n')[0] else ','
+    stream = io.StringIO(text, newline=None)
+    csv_input = csv.DictReader(stream, delimiter=delimiter)
+    all_rows = [r for r in csv_input if r]
+    
+    threading.Thread(target=background_campaign_processor, args=(app.app_context(), campanha_id, all_rows)).start()
+    return jsonify({"sucesso": True, "mensagem": f"Importação de {len(all_rows)} novos registros iniciada!"})
 
 @app.route('/campanha/<campanha_id>', methods=['GET'])
 def campanha_login_geral(campanha_id):
@@ -909,50 +936,25 @@ def add_participante_campanha(campanha_id):
     request_id = str(uuid.uuid4())
     pending_path = os.path.join(app.config['PENDING_FOLDER'], request_id)
     os.makedirs(pending_path, exist_ok=True)
-    final_pdf_name = f"campanha_{camp.id}_{request_id}.pdf"
-    output_pdf_path = os.path.join(pending_path, final_pdf_name)
-    
     try:
-        template_reader = PdfReader(open(template_pdf_path, "rb"))
-        output_writer = PdfWriter()
-        fields_by_page = {}
-        for campo_map in (tpl.fields_mapping or []):
-            pg = campo_map.get('page', 0)
-            if pg not in fields_by_page: fields_by_page[pg] = []
-            fields_by_page[pg].append(campo_map)
-            
-        for page_num in range(len(template_reader.pages)):
-            page_obj = template_reader.pages[page_num]
-            if page_num in fields_by_page:
-                packet = io.BytesIO()
-                w, h = float(page_obj.mediabox.width), float(page_obj.mediabox.height)
-                c = canvas.Canvas(packet, pagesize=(w, h))
-                c.setFont("Helvetica", 11)
-                
-                for campo_map in fields_by_page[page_num]:
-                    var_name = campo_map.get('name')
-                    # check dict dynamically in ignorecase
-                    val = next((v for k,v in row.items() if k.lower() == var_name.lower()), '')
-                    x_pos = (campo_map.get('x_percent', 0) / 100) * w
-                    y_pos = h - ((campo_map.get('y_percent', 0) / 100) * h)
-                    c.drawString(x_pos, y_pos - 4, str(val))
-                c.save(); packet.seek(0)
-                overlay_pdf = PdfReader(packet)
-                page_obj.merge_page(overlay_pdf.pages[0])
-            output_writer.add_page(page_obj)
-
-        with open(output_pdf_path, "wb") as f: output_writer.write(f)
+        final_pdf_name = f"campanha_{camp.id}_{request_id}.pdf"
+        output_pdf_path = os.path.join(pending_path, final_pdf_name)
+        
+        # Usa a nova função auxiliar
+        original_hash = gerar_pdf_para_campanha(tpl, row, output_pdf_path)
         
         new_doc = Documento(
             request_id=request_id, signer_name=nome,
             signer_cpf=cpf, signer_phone=telefone,
             doc_data=row, original_filename=final_pdf_name, 
-            original_hash=calculate_hash(output_pdf_path),
+            original_hash=original_hash,
             campanha_id=camp.id, whatsapp_status='Pausado'
         )
         db.session.add(new_doc)
         db.session.commit()
         return jsonify({"sucesso": True})
+    except Exception as e:
+        return jsonify({"sucesso": False, "erro": str(e)}), 500
     except Exception as e:
         return jsonify({"sucesso": False, "erro": str(e)}), 500
 

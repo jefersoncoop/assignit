@@ -111,7 +111,7 @@
                     </div>
                 </div>
             </form>
-            <div id="campanhaLoader" style="display: none; color: #007bff; font-weight: bold; margin-top: 10px;">Processando matriz e gerando PDFs. Por favor, aguarde...</div>
+            <div id="campanhaLoader" style="display: none; color: #007bff; font-weight: bold; margin-top: 10px; padding: 10px; background: #e7f1ff; border-radius: 4px;">🚀 O upload foi concluído! O servidor está gerando os documentos em segundo plano. Você já pode ver a campanha na lista abaixo.</div>
         </div>
 
         <button class="btn-refresh" onclick="fetchCampanhas()">Atualizar Lista</button>
@@ -149,20 +149,36 @@
             </div>
             <button onclick="submitNewParticipante()" class="btn btn-primary" style="margin-top: 10px; background-color: #28a745; border-color: #28a745;">Adicionar na Campanha</button>
         </div>
-        
-        <table id="tableCampanhaDocs" style="width: 100%; border-collapse: collapse; margin-top: 15px;">
-            <thead>
-                <tr>
-                    <th style="background:#f1f3f5; padding:8px;">Nome</th>
-                    <th style="background:#f1f3f5; padding:8px;">CPF</th>
-                    <th style="background:#f1f3f5; padding:8px;">Telefone</th>
-                    <th style="background:#f1f3f5; padding:8px;">Status</th>
-                    <th style="background:#f1f3f5; padding:8px;">WhatsApp</th>
-                    <th style="background:#f1f3f5; padding:8px;">Ações</th>
-                </tr>
-            </thead>
-            <tbody></tbody>
-        </table>
+
+        <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px dashed #007bff;">
+            <h4 style="margin: 0 0 10px 0; color: #007bff; display: flex; align-items:center; gap: 8px;">
+                <span style="font-size: 1.2em;">📥</span> Importação em Lote (CSV)
+            </h4>
+            <p style="font-size: 0.85em; color: #666; margin-bottom: 10px;">Adicione centenas ou milhares de participantes de uma vez usando um arquivo CSV.</p>
+            <div style="display: flex; gap: 10px; align-items: flex-end;">
+                <div style="flex: 1;">
+                    <input type="file" id="batchCsvInput" accept=".csv" style="width: 100%; padding: 8px; background: white; border: 1px solid #ccc; border-radius: 4px;">
+                </div>
+                <button onclick="uploadBatchCSV()" class="btn btn-primary" style="padding: 10px 20px;">Processar Lote CSV</button>
+            </div>
+            <div id="batchLoader" style="display:none; margin-top: 10px; font-weight: bold; color: #28a745;">⏳ Iniciando processamento em segundo plano...</div>
+        </div>
+
+        <div style="overflow-x: auto;">
+            <table id="tableCampanhaDocs" style="width: 100%; border-collapse: collapse; font-size: 0.9em;">
+                <thead>
+                    <tr style="text-align: left; border-bottom: 2px solid #dee2e6;">
+                        <th style="background:#f1f3f5; padding:8px;">Data</th>
+                        <th style="background:#f1f3f5; padding:8px;">Nome</th>
+                        <th style="background:#f1f3f5; padding:8px;">CPF</th>
+                        <th style="background:#f1f3f5; padding:8px;">Status</th>
+                        <th style="background:#f1f3f5; padding:8px;">WhatsApp</th>
+                        <th style="background:#f1f3f5; padding:8px;">Ações</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
     </div>
 </div>
 
@@ -314,24 +330,27 @@
         fd.append('csv_file', file);
         
         document.getElementById('btnUploadCampanha').disabled = true;
-        document.getElementById('campanhaLoader').style.display = 'block';
+        document.body.style.cursor = 'wait';
         
         try {
             const res = await fetch('/api/admin/campanhas/upload', { method: 'POST', body: fd });
             const data = await res.json();
-            if(data.sucesso) {
-                alert(`Campanha efetuada! ${data.total} documentos gerados sob demanda e acoplados na fila do WhatsApp.`);
+            if (data.sucesso) {
+                document.getElementById('campanhaLoader').style.display = 'block';
+                document.getElementById('campanhaNome').value = '';
+                document.getElementById('campanhaCsv').value = '';
                 fetchCampanhas();
-                document.getElementById('formCampanha').reset();
-                toggleCsvBtn();
+                // Oculta loader após 10 segundos
+                setTimeout(() => { document.getElementById('campanhaLoader').style.display = 'none'; }, 10000);
             } else {
-                alert('Erro do banco: ' + data.erro);
+                alert('Erro: ' + data.erro);
+                document.getElementById('btnUploadCampanha').disabled = false;
             }
-        } catch(err) {
-            alert('Falha crítica na rede.');
-        } finally {
+        } catch (e) {
+            alert('Falha na comunicação com o servidor.');
             document.getElementById('btnUploadCampanha').disabled = false;
-            document.getElementById('campanhaLoader').style.display = 'none';
+        } finally {
+            document.body.style.cursor = 'default';
         }
     }
 
@@ -364,19 +383,23 @@
             
             tbody.innerHTML = data.map(d => {
                 const link = `${window.location.origin}/campanha/auth/${d.request_id}`;
+                const dataCriacao = d.data_criacao ? new Date(d.data_criacao).toLocaleDateString('pt-BR') : '--';
                 return `
-                <tr style="border-bottom:1px solid #ccc;">
-                    <td style="padding:10px;">${d.nome_signatario}</td>
+                <tr style="border-bottom:1px solid #eee;">
+                    <td style="padding:10px; color:#666;">${dataCriacao}</td>
+                    <td style="padding:10px; font-weight:bold;">${d.nome_signatario}</td>
                     <td style="padding:10px;">${d.cpf_signatario}</td>
+                    <td style="padding:10px;"><span class="badge bg-${d.status}">${d.status.toUpperCase()}</span></td>
                     <td style="padding:10px;">
-                        <input type="text" id="phone_${d.request_id}" value="${d.signer_phone || ''}" style="width:110px; padding:4px;">
+                        <div style="display:flex; flex-direction:column; gap:4px;">
+                            <span class="badge ${d.whatsapp_status === 'Enviado' ? 'bg-signed' : 'bg-pending'}" style="width:fit-content;">${d.whatsapp_status}</span>
+                            <input type="text" id="phone_${d.request_id}" value="${d.signer_phone || ''}" placeholder="Telefone" style="width:110px; padding:2px; font-size:0.8em;">
+                        </div>
                     </td>
-                    <td style="padding:10px;"><span class="badge bg-${d.status}">${d.status}</span></td>
-                    <td style="padding:10px;"><span class="badge ${d.whatsapp_status === 'Enviado' ? 'bg-signed' : 'bg-pending'}">${d.whatsapp_status}</span></td>
                     <td style="padding:10px;">
                         <button onclick="copiarTexto('${link}')" class="btn btn-secondary" style="padding:4px 8px; font-size:0.8em;" title="Copiar Link Seguro">URL</button>
-                        <button onclick="reenviarWa('${d.request_id}')" class="btn btn-primary" style="padding:4px 8px; font-size:0.8em;" title="Salvar tel atualizado e reenviar na fila">Reenviar WA</button>
-                        ${d.status === 'pending' ? `<button onclick="apagarDocCampanha('${d.request_id}')" class="btn btn-danger" style="padding:4px 8px; font-size:0.8em; background:#dc3545; border:none; color:white;">Remover</button>` : ''}
+                        <button onclick="reenviarWa('${d.request_id}')" class="btn btn-primary" style="padding:4px 8px; font-size:0.8em; background:#007bff;" title="Salvar tel e reenviar">RE-WA</button>
+                        ${d.status === 'pending' ? `<button onclick="apagarDocCampanha('${d.request_id}')" class="btn btn-danger" style="padding:4px 8px; font-size:0.8em; background:#dc3545; border:none; color:white;">Apagar</button>` : ''}
                     </td>
                 </tr>
                 `;
@@ -408,6 +431,37 @@
         }
     }
     
+    async function uploadBatchCSV() {
+        const campId = document.getElementById('dynamicFormContainer').dataset.campId;
+        const fileInput = document.getElementById('batchCsvInput');
+        if (!fileInput.files.length) { alert('Selecione um arquivo CSV.'); return; }
+        
+        const loader = document.getElementById('batchLoader');
+        loader.style.display = 'block';
+        
+        const formData = new FormData();
+        formData.append('csv_file', fileInput.files[0]);
+        
+        try {
+            const res = await fetch(`/api/admin/campanhas/${campId}/append-csv`, {
+                method: 'POST',
+                body: formData
+            });
+            const data = await res.json();
+            if (data.sucesso) {
+                alert(data.mensagem);
+                fileInput.value = '';
+                setTimeout(() => { loader.style.display = 'none'; }, 5000);
+            } else {
+                alert('Erro: ' + data.erro);
+                loader.style.display = 'none';
+            }
+        } catch(e) {
+            alert('Falha na comunicação');
+            loader.style.display = 'none';
+        }
+    }
+
     async function submitNewParticipante() {
         const campId = document.getElementById('dynamicFormContainer').dataset.campId;
         const inputs = document.querySelectorAll('[id^=campo_dinamico_]');
