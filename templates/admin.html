@@ -164,13 +164,25 @@
         <h2 id="modalCampanhaTitle" style="margin-top:0; color: #333; border-bottom: 2px solid #007bff; padding-bottom: 10px;">Gerenciar Campanha</h2>
         
         <div style="display: flex; gap: 15px; margin-bottom: 20px; align-items: center; background: #f0f7ff; padding: 15px; border-radius: 8px;">
-            <div style="flex: 1; position: relative;">
+            <div style="flex: 2; position: relative;">
                 <span style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: #666;">🔍</span>
                 <input type="text" id="inputSearchDocs" placeholder="Filtrar por nome ou CPF..." 
                        style="width: 100%; padding: 10px 10px 10px 35px; border: 1px solid #007bff; border-radius: 8px; outline: none;"
                        onkeyup="debounceFetchDocs()">
             </div>
-            <div id="paginationSummary" style="font-size: 0.9em; font-weight: bold; color: #007bff;">Carregando métricas...</div>
+            <div style="flex: 1;">
+                <select id="selectFilterStatus" onchange="currentCampPage=1; renderDocsTable()" 
+                        style="width: 100%; padding: 10px; border: 1px solid #007bff; border-radius: 8px; background: white; outline: none; cursor: pointer;">
+                    <option value="">Todos os Status</option>
+                    <option value="ready">✅ Gerados (Prontos)</option>
+                    <option value="generating">⏳ Pendentes de PDF</option>
+                    <option value="processing">⚙️ Em Processamento</option>
+                    <option value="signed">✍️ Assinados</option>
+                    <option value="pending">📄 Aguardando Assinatura</option>
+                    <option value="error_generating">❌ Erro na Geração</option>
+                </select>
+            </div>
+            <div id="paginationSummary" style="flex: 1; font-size: 0.85em; font-weight: bold; color: #007bff; text-align: right;">Carregando métricas...</div>
         </div>
         <div style="background: #f8f9fa; padding: 18px; border-radius: 10px; margin-bottom: 20px; border: 1px solid #dee2e6;">
             <h4 style="margin-top:0; color: #444;">+ Adicionar Assinante Manual</h4>
@@ -355,6 +367,7 @@
                     <td>
                         <div style="font-size: 0.85em;">
                             <b>Total:</b> ${c.total_docs} | 
+                            <b style="color: #6f42c1;">Gerados:</b> ${c.docs_gerados} | 
                             <b style="color: green;">Assinados:</b> ${c.docs_assinados} | 
                             <b style="color: orange;">Pendentes:</b> ${c.docs_pendentes}
                         </div>
@@ -454,27 +467,38 @@
 
     async function renderDocsTable() {
         const q = document.getElementById('inputSearchDocs').value.trim();
+        const status = document.getElementById('selectFilterStatus').value;
         const tbody = document.querySelector('#tableCampanhaDocs tbody');
         tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">🔍 Buscando...</td></tr>';
         
         try {
-            const res = await fetch(`/api/admin/campanhas/${currentCampId}/docs?page=${currentCampPage}&q=${encodeURIComponent(q)}`);
-            const data = await res.json();
+            const res = await fetch(`/api/admin/campanhas/${currentCampId}/docs?page=${currentCampPage}&q=${encodeURIComponent(q)}&status=${status}`);
+            const data = await res.json(); 
             
-            document.getElementById('paginationSummary').innerText = `Total: ${data.total} registros | Mostrando página ${data.current_page} de ${data.pages}`;
-            document.getElementById('pageIndicator').innerText = `Página ${data.current_page} de ${data.pages}`;
+            const progressPercent = data.stats.total_campanha ? Math.round((data.stats.gerados / data.stats.total_campanha) * 100) : 0;
+            document.getElementById('paginationSummary').innerHTML = `
+                <div style="margin-bottom:4px;">📊 Gerados: ${data.stats.gerados} / ${data.stats.total_campanha} (${progressPercent}%)</div>
+                <div>Página ${data.current_page} de ${data.pages}</div>
+            `;
+            
+            document.getElementById('pageIndicator').innerText = `Pág. ${data.current_page}`;
             document.getElementById('btnPrevPage').disabled = (data.current_page <= 1);
             document.getElementById('btnNextPage').disabled = (data.current_page >= data.pages);
 
             tbody.innerHTML = data.items.map(d => {
                 const link = `${window.location.origin}/campanha/auth/${d.request_id}`;
                 const dataCriacao = d.data_criacao ? new Date(d.data_criacao).toLocaleDateString('pt-BR') : '--';
+                
+                let statusBadge = `<span class="badge bg-${d.status}">${d.status.toUpperCase()}</span>`;
+                if(d.status === 'processing') statusBadge = `<span class="badge" style="background:#6f42c1; color:white; animation: pulse 2s infinite;">PROCESSO ⚙️</span>`;
+                if(d.status === 'generating') statusBadge = `<span class="badge bg-pending">NA FILA ⏳</span>`;
+
                 return `
                 <tr style="border-bottom:1px solid #eee;">
                     <td style="padding:10px; color:#666;">${dataCriacao}</td>
                     <td style="padding:10px; font-weight:bold;">${d.nome_signatario}</td>
                     <td style="padding:10px;">${d.cpf_signatario}</td>
-                    <td style="padding:10px;"><span class="badge bg-${d.status}">${d.status.toUpperCase()}</span></td>
+                    <td style="padding:10px;">${statusBadge}</td>
                     <td style="padding:10px;">
                         <div style="display:flex; flex-direction:column; gap:4px;">
                             <span class="badge ${d.whatsapp_status === 'Enviado' ? 'bg-signed' : 'bg-pending'}" style="width:fit-content;">${d.whatsapp_status}</span>
@@ -484,7 +508,7 @@
                     <td style="padding:10px;">
                         <button onclick="copiarTexto('${link}')" class="btn btn-secondary" style="padding:4px 8px; font-size:0.8em;" title="Copiar Link Seguro">URL</button>
                         <button onclick="reenviarWa('${d.request_id}')" class="btn btn-primary" style="padding:4px 8px; font-size:0.8em; background:#007bff;" title="Salvar tel e reenviar">RE-WA</button>
-                        ${d.status === 'pending' ? `<button onclick="apagarDocCampanha('${d.request_id}')" class="btn btn-danger" style="padding:4px 8px; font-size:0.8em; background:#dc3545; border:none; color:white;">Apagar</button>` : ''}
+                        ${(d.status === 'pending' || d.status.startsWith('error')) ? `<button onclick="apagarDocCampanha('${d.request_id}')" class="btn btn-danger" style="padding:4px 8px; font-size:0.8em; background:#dc3545; border:none; color:white;">Apagar</button>` : ''}
                     </td>
                 </tr>
                 `;

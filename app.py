@@ -642,12 +642,14 @@ def listar_campanhas():
     for c in campanhas:
         docs_query = Documento.query.filter_by(campanha_id=c.id)
         total = docs_query.count()
-        # Para otimizar, só contamos assinados se não for pesado demais ou em lote
         assinados = docs_query.filter_by(status='signed').count()
+        # Documentos "gerados" são aqueles que NÃO estão mais em fila de geração
+        gerados = docs_query.filter(~Documento.status.in_(['generating', 'processing', 'error_generating'])).count()
         
         d = c.to_dict()
         d['total_docs'] = total
         d['docs_assinados'] = assinados
+        d['docs_gerados'] = gerados
         d['docs_pendentes'] = total - assinados
         res.append(d)
     return jsonify(res)
@@ -926,6 +928,7 @@ def exportar_relatorio_campanha(campanha_id):
 @basic_auth.required
 def listar_docs_campanha(campanha_id):
     q = request.args.get('q', '')
+    status_filter = request.args.get('status', '')
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 50, type=int)
     
@@ -935,8 +938,18 @@ def listar_docs_campanha(campanha_id):
             Documento.signer_name.ilike(f"%{q}%"),
             Documento.signer_cpf.ilike(f"%{q}%")
         ))
+    if status_filter:
+        if status_filter == 'ready':
+            # Alias para documentos que já saíram da fila de geração
+            query = query.filter(~Documento.status.in_(['generating', 'processing', 'error_generating']))
+        else:
+            query = query.filter_by(status=status_filter)
     
     pagination = query.order_by(Documento.created_at.desc()).paginate(page=page, per_page=per_page, error_out=False)
+    
+    # Adicionalmente, calculamos o progresso total para o cabeçalho
+    total_docs = Documento.query.filter_by(campanha_id=campanha_id).count()
+    gerados = Documento.query.filter_by(campanha_id=campanha_id).filter(~Documento.status.in_(['generating', 'processing', 'error_generating'])).count()
     
     res = []
     for d in pagination.items:
@@ -948,7 +961,11 @@ def listar_docs_campanha(campanha_id):
         "items": res,
         "total": pagination.total,
         "pages": pagination.pages,
-        "current_page": pagination.page
+        "current_page": pagination.page,
+        "stats": {
+            "total_campanha": total_docs,
+            "gerados": gerados
+        }
     })
 
 @app.route('/api/admin/campanhas/resend/<request_id>', methods=['POST'])
