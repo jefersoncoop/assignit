@@ -647,53 +647,53 @@ def baixar_template_csv(template_id):
         "Content-type": "text/csv; charset=utf-8"
     }
 
-def background_campaign_processor(app_ctx, camp_id, rows_to_process):
-    """Thread que processa as linhas do CSV e gera os PDFs em segundo plano."""
-    with app_ctx:
-        camp = db.session.get(Campanha, camp_id)
-        if not camp: return
-        tpl = db.session.get(TemplateDocumento, camp.template_id)
-        if not tpl: return
-        
-        logging.info(f"[BG CAMPANHA] Iniciando processamento de {len(rows_to_process)} linhas para a campanha {camp_id}")
-        
-        for row in rows_to_process:
-            try:
-                cpf_key = next((k for k in row.keys() if k and k.strip().lower() == 'cpf'), None)
-                if not cpf_key: continue
-                cpf = ''.join(filter(str.isdigit, str(row[cpf_key])))
+def background_campaign_processor(app_ctx):
+    """Worker que varre o banco por documentos com status 'generating' e gera os PDFs."""
+    while True:
+        try:
+            with app_ctx:
+                # Busca documentos que ainda precisam de PDF
+                docs_to_generate = Documento.query.filter_by(status='generating').limit(50).all()
                 
-                telefone_key = next((k for k in row.keys() if k and k.strip().lower() in ['telefone', 'whatsapp', 'celular', 'phone']), None)
-                tel = ''.join(filter(str.isdigit, str(row[telefone_key]))) if telefone_key else ''
+                if not docs_to_generate:
+                    time.sleep(10)
+                    continue
                 
-                nome_key = next((k for k in row.keys() if k and k.strip().lower() == 'nome'), None)
-                nome = str(row[nome_key]).strip() if nome_key else 'Participante'
+                logging.info(f"[BG PDF] Processando lote de {len(docs_to_generate)} documentos pendentes de geração.")
                 
-                if not cpf: continue
-                
-                req_id = str(uuid.uuid4())
-                p_path = os.path.join(app.config['PENDING_FOLDER'], req_id)
-                os.makedirs(p_path, exist_ok=True)
-                pdf_name = f"campanha_{camp_id}_{req_id}.pdf"
-                out_path = os.path.join(p_path, pdf_name)
-                
-                # Gera o PDF
-                h = gerar_pdf_para_campanha(tpl, row, out_path)
-                
-                new_doc = Documento(
-                    request_id=req_id, signer_name=nome,
-                    signer_cpf=cpf, signer_phone=tel,
-                    doc_data=row, original_filename=pdf_name, 
-                    original_hash=h,
-                    campanha_id=camp_id, whatsapp_status='Pausado'
-                )
-                db.session.add(new_doc)
-                db.session.commit()
-            except Exception as e:
-                logging.error(f"[BG CAMPANHA] Erro na linha: {str(e)}")
-                db.session.rollback()
-        
-        logging.info(f"[BG CAMPANHA] Finalizado processamento da campanha {camp_id}")
+                for doc in docs_to_generate:
+                    try:
+                        camp = db.session.get(Campanha, doc.campanha_id)
+                        if not camp:
+                            doc.status = 'error_no_campaign'
+                            db.session.commit()
+                            continue
+                        
+                        tpl = db.session.get(TemplateDocumento, camp.template_id)
+                        if not tpl:
+                            doc.status = 'error_no_template'
+                            db.session.commit()
+                            continue
+                            
+                        p_path = os.path.join(app.config['PENDING_FOLDER'], doc.request_id)
+                        os.makedirs(p_path, exist_ok=True)
+                        out_path = os.path.join(p_path, doc.original_filename)
+                        
+                        # Gera o PDF usando os dados salvos no doc_data
+                        h = gerar_pdf_para_campanha(tpl, doc.doc_data, out_path)
+                        
+                        doc.original_hash = h
+                        doc.status = 'pending' # PDF pronto para assinatura
+                        db.session.commit()
+                    except Exception as e:
+                        logging.error(f"[BG PDF] Erro no doc {doc.request_id}: {str(e)}")
+                        doc.status = 'error_generating'
+                        db.session.commit()
+            
+            time.sleep(1) # Pequena pausa entre lotes
+        except Exception as e:
+            logging.error(f"[BG PDF] Erro crítico no worker: {str(e)}")
+            time.sleep(10)
 
 @app.route('/api/admin/campanhas/upload', methods=['POST'])
 @basic_auth.required
@@ -716,16 +716,31 @@ def upload_campanhas_csv():
     try: text = raw_bytes.decode('utf-8-sig')
     except: text = raw_bytes.decode('latin-1')
 
-    primeira_linha = text.split('\n')[0]
-    delimiter = ';' if ';' in primeira_linha else ','
+    delimiter = ';' if ';' in text.split('\n')[0] else ','
     stream = io.StringIO(text, newline=None)
     csv_input = csv.DictReader(stream, delimiter=delimiter)
-    all_rows = [r for r in csv_input if r]
     
-    # Dispara thread de processamento
-    threading.Thread(target=background_campaign_processor, args=(app.app_context(), camp_id, all_rows)).start()
+    count = 0
+    for row in [r for r in csv_input if r]:
+        cpf_key = next((k for k in row.keys() if k and k.strip().lower() == 'cpf'), None)
+        if not cpf_key: continue
+        cpf = ''.join(filter(str.isdigit, str(row[cpf_key])))
+        tel_key = next((k for k in row.keys() if k and k.strip().lower() in ['telefone', 'whatsapp', 'celular', 'phone']), None)
+        tel = ''.join(filter(str.isdigit, str(row[tel_key]))) if tel_key else ''
+        nome_key = next((k for k in row.keys() if k and k.strip().lower() == 'nome'), None)
+        nome = str(row[nome_key]).strip() if nome_key else 'Participante'
+        
+        req_id = str(uuid.uuid4())
+        new_doc = Documento(
+            request_id=req_id, signer_name=nome, signer_cpf=cpf, signer_phone=tel,
+            doc_data=row, original_filename=f"campanha_{camp_id}_{req_id}.pdf",
+            campanha_id=camp_id, status='generating', whatsapp_status='Pausado'
+        )
+        db.session.add(new_doc)
+        count += 1
     
-    return jsonify({"sucesso": True, "campanha_id": camp_id, "mensagem": f"Upload aceito! {len(all_rows)} registros sendo processados em segundo plano."})
+    db.session.commit()
+    return jsonify({"sucesso": True, "campanha_id": camp_id, "mensagem": f"Upload aceito! {count} registros inseridos na fila de processamento."})
 
 @app.route('/api/admin/campanhas/<campanha_id>/append-csv', methods=['POST'])
 @basic_auth.required
@@ -742,10 +757,28 @@ def append_campanha_csv(campanha_id):
     delimiter = ';' if ';' in text.split('\n')[0] else ','
     stream = io.StringIO(text, newline=None)
     csv_input = csv.DictReader(stream, delimiter=delimiter)
-    all_rows = [r for r in csv_input if r]
     
-    threading.Thread(target=background_campaign_processor, args=(app.app_context(), campanha_id, all_rows)).start()
-    return jsonify({"sucesso": True, "mensagem": f"Importação de {len(all_rows)} novos registros iniciada!"})
+    count = 0
+    for row in [r for r in csv_input if r]:
+        cpf_key = next((k for k in row.keys() if k and k.strip().lower() == 'cpf'), None)
+        if not cpf_key: continue
+        cpf = ''.join(filter(str.isdigit, str(row[cpf_key])))
+        tel_key = next((k for k in row.keys() if k and k.strip().lower() in ['telefone', 'whatsapp', 'celular', 'phone']), None)
+        tel = ''.join(filter(str.isdigit, str(row[tel_key]))) if tel_key else ''
+        nome_key = next((k for k in row.keys() if k and k.strip().lower() == 'nome'), None)
+        nome = str(row[nome_key]).strip() if nome_key else 'Participante'
+        
+        req_id = str(uuid.uuid4())
+        new_doc = Documento(
+            request_id=req_id, signer_name=nome, signer_cpf=cpf, signer_phone=tel,
+            doc_data=row, original_filename=f"campanha_{campanha_id}_{req_id}.pdf",
+            campanha_id=campanha_id, status='generating', whatsapp_status='Pausado'
+        )
+        db.session.add(new_doc)
+        count += 1
+        
+    db.session.commit()
+    return jsonify({"sucesso": True, "mensagem": f"Importação de {count} novos registros iniciada!"})
 
 @app.route('/campanha/<campanha_id>', methods=['GET'])
 def campanha_login_geral(campanha_id):
@@ -1157,5 +1190,9 @@ if __name__ == '__main__':
     # Iniciar fila limpa em thread daemon
     wa_thread = threading.Thread(target=whatsapp_queue_worker, daemon=True)
     wa_thread.start()
+    
+    # Iniciar worker de geração de PDFs resiliante
+    pdf_thread = threading.Thread(target=background_campaign_processor, args=(app.app_context(),), daemon=True)
+    pdf_thread.start()
     
     app.run(debug=True, port=5001, use_reloader=False) # Disable reloader when using threads to prevent dual workers
