@@ -10,7 +10,7 @@ import cv2
 import io
 from flask import Flask, render_template, request, redirect, url_for, abort, jsonify, send_from_directory
 from flask_sqlalchemy import SQLAlchemy 
-from flask_cors import CORS 
+from sqlalchemy import or_
 from flask_cors import CORS 
 from flask_basicauth import BasicAuth 
 from werkzeug.utils import secure_filename
@@ -228,13 +228,34 @@ def mask_cpf(cpf):
 @app.route('/admin')
 @basic_auth.required
 def admin_dashboard():
-    try:
-        docs_objects = Documento.query.order_by(Documento.created_at.desc()).all()
-        all_docs = [doc.to_dict() for doc in docs_objects]
-    except Exception as e:
-        print(f"Erro ao buscar documentos: {e}")
-        all_docs = []
-    return render_template('admin.html', all_docs_json=json.dumps(all_docs))
+    # Agora o frontend busca os dados via API paginada para ser mais rápido
+    return render_template('admin.html')
+
+@app.route('/api/admin/docs', methods=['GET'])
+@basic_auth.required
+def api_listar_docs_geral():
+    q = request.args.get('q', '')
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 50, type=int)
+    status_filter = request.args.get('status', '')
+
+    query = Documento.query
+    if q:
+        query = query.filter(or_(
+            Documento.signer_name.ilike(f"%{q}%"),
+            Documento.signer_cpf.ilike(f"%{q}%")
+        ))
+    if status_filter:
+        query = query.filter_by(status=status_filter)
+
+    pagination = query.order_by(Documento.created_at.desc()).paginate(page=page, per_page=per_page, error_out=False)
+    
+    return jsonify({
+        "items": [d.to_dict() for d in pagination.items],
+        "total": pagination.total,
+        "pages": pagination.pages,
+        "current_page": pagination.page
+    })
 
 @app.route('/admin/delete-pending/<request_id>', methods=['DELETE'])
 @basic_auth.required
@@ -610,16 +631,23 @@ def create_dynamic_template_api():
 @app.route('/api/admin/campanhas', methods=['GET'])
 @basic_auth.required
 def listar_campanhas():
-    campanhas = Campanha.query.order_by(Campanha.created_at.desc()).all()
+    q = request.args.get('q', '')
+    query = Campanha.query
+    if q:
+        query = query.filter(Campanha.name.ilike(f"%{q}%"))
+        
+    campanhas = query.order_by(Campanha.created_at.desc()).all()
     res = []
     for c in campanhas:
-        docs = Documento.query.filter_by(campanha_id=c.id).all()
-        assinados = sum(1 for d in docs if d.status == 'signed')
-        pendentes = len(docs) - assinados
+        docs_query = Documento.query.filter_by(campanha_id=c.id)
+        total = docs_query.count()
+        # Para otimizar, só contamos assinados se não for pesado demais ou em lote
+        assinados = docs_query.filter_by(status='signed').count()
+        
         d = c.to_dict()
-        d['total_docs'] = len(docs)
+        d['total_docs'] = total
         d['docs_assinados'] = assinados
-        d['docs_pendentes'] = pendentes
+        d['docs_pendentes'] = total - assinados
         res.append(d)
     return jsonify(res)
 
@@ -894,13 +922,31 @@ def exportar_relatorio_campanha(campanha_id):
 @app.route('/api/admin/campanhas/<campanha_id>/docs', methods=['GET'])
 @basic_auth.required
 def listar_docs_campanha(campanha_id):
-    docs = Documento.query.filter_by(campanha_id=campanha_id).order_by(Documento.created_at.desc()).all()
+    q = request.args.get('q', '')
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 50, type=int)
+    
+    query = Documento.query.filter_by(campanha_id=campanha_id)
+    if q:
+        query = query.filter(or_(
+            Documento.signer_name.ilike(f"%{q}%"),
+            Documento.signer_cpf.ilike(f"%{q}%")
+        ))
+    
+    pagination = query.order_by(Documento.created_at.desc()).paginate(page=page, per_page=per_page, error_out=False)
+    
     res = []
-    for d in docs:
+    for d in pagination.items:
         item = d.to_dict()
         item['signer_phone'] = d.signer_phone
         res.append(item)
-    return jsonify(res)
+        
+    return jsonify({
+        "items": res,
+        "total": pagination.total,
+        "pages": pagination.pages,
+        "current_page": pagination.page
+    })
 
 @app.route('/api/admin/campanhas/resend/<request_id>', methods=['POST'])
 @basic_auth.required
