@@ -142,7 +142,7 @@
                     <th>Data</th>
                     <th>Campanha</th>
                     <th>Status Local</th>
-                    <th>ID da Campanha (Para API CRM)</th>
+                    <th>Ações</th>
                 </tr>
             </thead>
             <tbody>
@@ -372,9 +372,14 @@
                             <b style="color: orange;">Pendentes:</b> ${c.docs_pendentes}
                         </div>
                     </td>
-                    <td style="font-family: monospace; font-size: 0.85em;">
-                        ${c.id} 
-                        <button onclick="copiarTexto('${c.id}')" class="btn btn-secondary" style="padding: 2px 6px; font-size: 0.75em;">Copiar</button>
+                    <td>
+                        <div style="display: flex; gap: 5px; flex-wrap: wrap;">
+                            <button class="btn" style="background:#28a745; color:white; border:none; padding: 5px 10px; font-size: 0.8em; border-radius: 4px; cursor: pointer;" onclick="iniciarDisparosWA('${c.id}')">▶ Disparos ZAP</button>
+                            <button class="btn" style="background:#007bff; color:white; border:none; padding: 5px 10px; font-size: 0.8em; border-radius: 4px; cursor: pointer;" onclick="openCampanhaDocsModal('${c.id}', '${c.name.replace(/'/g, "\\'")}')">Gerenciar</button>
+                            <button class="btn" style="background:#17a2b8; color:white; border:none; padding: 5px 10px; font-size: 0.8em; border-radius: 4px; cursor: pointer;" onclick="copiarTexto('${window.location.origin}/campanha/${c.id}')">Link Público</button>
+                            <button class="btn" style="background:#6c757d; color:white; border:none; padding: 5px 10px; font-size: 0.8em; border-radius: 4px; cursor: pointer;" onclick="baixarRelatorioCsv('${c.id}')">Relatório</button>
+                        </div>
+                        <div style="margin-top: 5px; font-family: monospace; font-size: 0.75em; color: #888;">ID: ${c.id}</div>
                     </td>
                 </tr>
             `).join('');
