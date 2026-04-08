@@ -198,8 +198,7 @@
 
             <div id="step-4" class="step">
                 <h2>Selfie de Confirmação</h2>
-                <p>Para garantir sua identidade, tire uma foto (selfie) nítida <strong>segurando um documento de
-                        identificação com foto</strong> (RG ou CNH) ao lado do seu rosto.</p>
+                <p>Para garantir sua identidade, tire uma foto (selfie) nítida</p>
                 <div class="selfie-container">
                     <video id="video" width="320" height="240" autoplay></video>
                     <canvas id="selfieCanvas" width="320" height="240" style="display:none;"></canvas>
@@ -230,12 +229,12 @@
         termsCheckbox.addEventListener('change', () => {
             btnToStep2.disabled = !termsCheckbox.checked;
         });
-        
+
         {% if is_campanha %}
         btnToStep2.addEventListener('click', () => showStep(3));
         {% else %}
         btnToStep2.addEventListener('click', () => showStep(2));
-        
+
         // --- Lógica da Etapa 2 ---
         document.getElementById('btn-to-step-3').addEventListener('click', () => showStep(3));
         {% endif %}
@@ -307,7 +306,7 @@
 
         async function executarExclusao() {
             const cpf = document.getElementById('exc_cpf').value;
-            
+
             const requestId = "{{ request_id }}"; // O Flask injeta isso no template
 
             if (!cpf) {
@@ -319,7 +318,7 @@
                 const response = await fetch('/api/excluir-documento', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ request_id: requestId, cpf: cpf})
+                    body: JSON.stringify({ request_id: requestId, cpf: cpf })
                 });
 
                 const data = await response.json();
