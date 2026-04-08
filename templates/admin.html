@@ -378,6 +378,7 @@
                             <button class="btn" style="background:#007bff; color:white; border:none; padding: 5px 10px; font-size: 0.8em; border-radius: 4px; cursor: pointer;" onclick="openCampanhaDocsModal('${c.id}', '${c.name.replace(/'/g, "\\'")}')">Gerenciar</button>
                             <button class="btn" style="background:#17a2b8; color:white; border:none; padding: 5px 10px; font-size: 0.8em; border-radius: 4px; cursor: pointer;" onclick="copiarTexto('${window.location.origin}/campanha/${c.id}')">Link Público</button>
                             <button class="btn" style="background:#6c757d; color:white; border:none; padding: 5px 10px; font-size: 0.8em; border-radius: 4px; cursor: pointer;" onclick="baixarRelatorioCsv('${c.id}')">Relatório</button>
+                            <button class="btn" style="background:#dc3545; color:white; border:none; padding: 5px 10px; font-size: 0.8em; border-radius: 4px; cursor: pointer;" onclick="deletarCampanha('${c.id}', '${c.name.replace(/'/g, "\\'")}')">Excluir</button>
                         </div>
                         <div style="margin-top: 5px; font-family: monospace; font-size: 0.75em; color: #888;">ID: ${c.id}</div>
                     </td>
@@ -630,6 +631,33 @@
                 fetchCampanhas();
             } else alert('Falha ao iniciar.');
         } catch(e) { alert('Erro na comunicação'); }
+    }
+
+    async function deletarTemplate(id, nome) {
+        if (!confirm(`Deseja realmente excluir o modelo "${nome}"?`)) return;
+        try {
+            const res = await fetch(`/api/admin/template/${id}`, { method: 'DELETE' });
+            if (res.ok) fetchTemplates();
+            else alert('Erro ao excluir template');
+        } catch (e) { alert('Erro de rede'); }
+    }
+
+    async function deletarCampanha(id, nome) {
+        if (!confirm(`⚠️ VOCÊ TEM CERTEZA?\n\nDeseja excluir a campanha "${nome}"?`)) return;
+        if (!confirm(`🚨 AÇÃO IRREVERSÍVEL!\n\nIsto apagará PERMANENTEMENTE todos os documentos e arquivos físicos desta campanha do servidor. Confirma exclusão total?`)) return;
+
+        try {
+            const res = await fetch(`/api/admin/campanhas/${id}`, { method: 'DELETE' });
+            const data = await res.json();
+            if (data.sucesso) {
+                alert('Campanha excluída com sucesso!');
+                fetchCampanhas();
+            } else {
+                alert('Erro ao excluir: ' + data.erro);
+            }
+        } catch (e) {
+            alert('Erro de comunicação com o servidor.');
+        }
     }
 
     async function apagarDocCampanha(reqId) {
