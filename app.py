@@ -629,6 +629,43 @@ def create_dynamic_template_api():
 
 
 # --- ROTAS DE CAMPANHA ---
+@app.route('/api/admin/campanhas/<campanha_id>', methods=['DELETE'])
+@basic_auth.required
+def deletar_campanha(campanha_id):
+    camp = db.session.get(Campanha, campanha_id)
+    if not camp:
+        return jsonify({"sucesso": False, "erro": "Campanha não encontrada"}), 404
+        
+    try:
+        # 1. Buscar todos os documentos da campanha
+        docs = Documento.query.filter_by(campanha_id=campanha_id).all()
+        
+        for doc in docs:
+            # 2. Remover arquivos físicos (Pendentes)
+            p_path = os.path.join(app.config['PENDING_FOLDER'], doc.request_id)
+            if os.path.exists(p_path):
+                shutil.rmtree(p_path)
+            
+            # 3. Remover arquivos físicos (Assinados)
+            s_file = os.path.join(app.config['SIGNED_FOLDER'], f"signed_{doc.original_filename}")
+            if os.path.exists(s_file):
+                os.remove(s_file)
+            
+            # 4. Remover registro do banco
+            db.session.delete(doc)
+            
+        # 5. Remover a campanha
+        db.session.delete(camp)
+        db.session.commit()
+        
+        logging.info(f"[ADMIN] Campanha {campanha_id} e seus arquivos foram excluídos com sucesso.")
+        return jsonify({"sucesso": True, "mensagem": "Campanha e documentos excluídos com sucesso."})
+        
+    except Exception as e:
+        db.session.rollback()
+        logging.error(f"[ADMIN] Erro ao excluir campanha {campanha_id}: {str(e)}")
+        return jsonify({"sucesso": False, "erro": str(e)}), 500
+
 @app.route('/api/admin/campanhas', methods=['GET'])
 @basic_auth.required
 def listar_campanhas():
