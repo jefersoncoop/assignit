@@ -169,12 +169,13 @@
                 </div>
             </div>
 
-            {% if not is_campanha %}
             <div id="step-2" class="step">
                 <h2>Revise o Documento</h2>
                 <p>Leia atentamente o documento abaixo antes de prosseguir para a assinatura.</p>
                 <div class="actions" style="margin-bottom: 20px;">
-                    <button type="button" class="btn btn-primary" id="btn-to-step-3">Avançar para Assinatura</button>
+                    <button type="button" class="btn btn-primary" id="btn-to-step-3">
+                        {% if is_campanha %}Prosseguir com a Assinatura{% else %}Avançar para Assinatura{% endif %}
+                    </button>
                 </div>
                 <div class="document-viewer">
                     {% for image_url in document_images %}
@@ -182,7 +183,6 @@
                     {% endfor %}
                 </div>
             </div>
-            {% endif %}
 
             <div id="step-3" class="step">
                 <h2>Faça sua Assinatura</h2>
@@ -230,14 +230,10 @@
             btnToStep2.disabled = !termsCheckbox.checked;
         });
 
-        {% if is_campanha %}
-        btnToStep2.addEventListener('click', () => showStep(3));
-        {% else %}
         btnToStep2.addEventListener('click', () => showStep(2));
-
+        
         // --- Lógica da Etapa 2 ---
         document.getElementById('btn-to-step-3').addEventListener('click', () => showStep(3));
-        {% endif %}
 
         // --- Lógica da Etapa 3 ---
         const canvas = document.getElementById('signature-pad');

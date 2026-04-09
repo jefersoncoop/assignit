@@ -1039,3 +1039,99 @@
 2026-04-07 13:01:10,150 - INFO - 127.0.0.1 - - [07/Apr/2026 13:01:10] "GET /api/admin/campanhas/6e6449a3-bff3-4832-9918-31d8f0c6a8dd/docs HTTP/1.1" 200 -
 2026-04-07 13:01:10,156 - INFO - 127.0.0.1 - - [07/Apr/2026 13:01:10] "GET /api/admin/campanhas/6e6449a3-bff3-4832-9918-31d8f0c6a8dd/template-vars HTTP/1.1" 200 -
 2026-04-07 13:05:15,558 - INFO - 127.0.0.1 - - [07/Apr/2026 13:05:15] "GET /api/admin/campanhas HTTP/1.1" 200 -
+2026-04-09 08:54:38,003 - INFO - [WORKER] Este processo assumiu a liderança das threads de background.
+2026-04-09 08:54:38,065 - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on http://127.0.0.1:5001
+2026-04-09 08:54:38,065 - INFO - [33mPress CTRL+C to quit[0m
+2026-04-09 08:54:44,902 - INFO - 127.0.0.1 - - [09/Apr/2026 08:54:44] "GET / HTTP/1.1" 200 -
+2026-04-09 08:54:44,927 - INFO - 127.0.0.1 - - [09/Apr/2026 08:54:44] "[33mGET /favicon.ico HTTP/1.1[0m" 404 -
+2026-04-09 08:54:47,773 - INFO - 127.0.0.1 - - [09/Apr/2026 08:54:47] "[31m[1mGET /admin HTTP/1.1[0m" 401 -
+2026-04-09 08:54:51,007 - INFO - 127.0.0.1 - - [09/Apr/2026 08:54:51] "GET /admin HTTP/1.1" 200 -
+2026-04-09 08:54:51,054 - INFO - 127.0.0.1 - - [09/Apr/2026 08:54:51] "GET /api/admin/templates HTTP/1.1" 200 -
+2026-04-09 08:54:51,054 - INFO - 127.0.0.1 - - [09/Apr/2026 08:54:51] "GET /api/admin/docs?page=1&q= HTTP/1.1" 200 -
+2026-04-09 08:54:51,059 - INFO - 127.0.0.1 - - [09/Apr/2026 08:54:51] "GET /api/admin/campanhas?q= HTTP/1.1" 200 -
+2026-04-09 08:54:53,752 - INFO - 127.0.0.1 - - [09/Apr/2026 08:54:53] "GET /api/admin/templates HTTP/1.1" 200 -
+2026-04-09 08:54:54,369 - INFO - 127.0.0.1 - - [09/Apr/2026 08:54:54] "GET /api/admin/templates HTTP/1.1" 200 -
+2026-04-09 08:54:54,381 - INFO - 127.0.0.1 - - [09/Apr/2026 08:54:54] "GET /api/admin/campanhas?q= HTTP/1.1" 200 -
+2026-04-09 08:55:03,029 - INFO - 127.0.0.1 - - [09/Apr/2026 08:55:03] "GET /campanha/6e6449a3-bff3-4832-9918-31d8f0c6a8dd HTTP/1.1" 200 -
+2026-04-09 08:55:08,023 - INFO - 127.0.0.1 - - [09/Apr/2026 08:55:08] "GET /api/admin/campanhas/6e6449a3-bff3-4832-9918-31d8f0c6a8dd/template-vars HTTP/1.1" 200 -
+2026-04-09 08:55:08,026 - INFO - 127.0.0.1 - - [09/Apr/2026 08:55:08] "GET /api/admin/campanhas/6e6449a3-bff3-4832-9918-31d8f0c6a8dd/docs?page=1&q=&status= HTTP/1.1" 200 -
+2026-04-09 08:55:13,638 - INFO - 127.0.0.1 - - [09/Apr/2026 08:55:13] "POST /api/campanha/auth/validar HTTP/1.1" 200 -
+2026-04-09 08:55:17,557 - INFO - 127.0.0.1 - - [09/Apr/2026 08:55:17] "POST /api/campanha/auth/telefone HTTP/1.1" 200 -
+2026-04-09 08:55:17,572 - INFO - 127.0.0.1 - - [09/Apr/2026 08:55:17] "GET /campanha/visualizar/faebc4d4-592b-4d9e-817c-4241902c4aee HTTP/1.1" 200 -
+2026-04-09 08:55:17,590 - INFO - 127.0.0.1 - - [09/Apr/2026 08:55:17] "GET /pending/faebc4d4-592b-4d9e-817c-4241902c4aee/campanha_6e6449a3-bff3-4832-9918-31d8f0c6a8dd_faebc4d4-592b-4d9e-817c-4241902c4aee.pdf HTTP/1.1" 200 -
+2026-04-09 08:55:26,462 - INFO - 127.0.0.1 - - [09/Apr/2026 08:55:26] "GET /campanha/visualizar/faebc4d4-592b-4d9e-817c-4241902c4aee HTTP/1.1" 200 -
+2026-04-09 08:55:26,482 - INFO - 127.0.0.1 - - [09/Apr/2026 08:55:26] "GET /pending/faebc4d4-592b-4d9e-817c-4241902c4aee/campanha_6e6449a3-bff3-4832-9918-31d8f0c6a8dd_faebc4d4-592b-4d9e-817c-4241902c4aee.pdf HTTP/1.1" 200 -
+2026-04-09 08:55:26,492 - INFO - 127.0.0.1 - - [09/Apr/2026 08:55:26] "[33mGET /favicon.ico HTTP/1.1[0m" 404 -
+2026-04-09 09:02:58,132 - INFO - [WORKER] Este processo assumiu a liderança das threads de background.
+2026-04-09 09:02:58,168 - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on http://127.0.0.1:5001
+2026-04-09 09:02:58,168 - INFO - [33mPress CTRL+C to quit[0m
+2026-04-09 09:03:01,723 - INFO - 127.0.0.1 - - [09/Apr/2026 09:03:01] "GET /campanha/visualizar/faebc4d4-592b-4d9e-817c-4241902c4aee HTTP/1.1" 200 -
+2026-04-09 09:03:01,748 - INFO - 127.0.0.1 - - [09/Apr/2026 09:03:01] "[36mGET /pending/faebc4d4-592b-4d9e-817c-4241902c4aee/campanha_6e6449a3-bff3-4832-9918-31d8f0c6a8dd_faebc4d4-592b-4d9e-817c-4241902c4aee.pdf HTTP/1.1[0m" 304 -
+2026-04-09 09:03:03,565 - INFO - 127.0.0.1 - - [09/Apr/2026 09:03:03] "GET /campanha/visualizar/faebc4d4-592b-4d9e-817c-4241902c4aee HTTP/1.1" 200 -
+2026-04-09 09:03:03,586 - INFO - 127.0.0.1 - - [09/Apr/2026 09:03:03] "GET /pending/faebc4d4-592b-4d9e-817c-4241902c4aee/campanha_6e6449a3-bff3-4832-9918-31d8f0c6a8dd_faebc4d4-592b-4d9e-817c-4241902c4aee.pdf HTTP/1.1" 200 -
+2026-04-09 09:03:03,596 - INFO - 127.0.0.1 - - [09/Apr/2026 09:03:03] "[33mGET /favicon.ico HTTP/1.1[0m" 404 -
+2026-04-09 09:03:16,255 - INFO - 127.0.0.1 - - [09/Apr/2026 09:03:16] "GET /campanha/visualizar/faebc4d4-592b-4d9e-817c-4241902c4aee HTTP/1.1" 200 -
+2026-04-09 09:03:16,277 - INFO - 127.0.0.1 - - [09/Apr/2026 09:03:16] "[36mGET /pending/faebc4d4-592b-4d9e-817c-4241902c4aee/campanha_6e6449a3-bff3-4832-9918-31d8f0c6a8dd_faebc4d4-592b-4d9e-817c-4241902c4aee.pdf HTTP/1.1[0m" 304 -
+2026-04-09 09:03:16,905 - INFO - 127.0.0.1 - - [09/Apr/2026 09:03:16] "GET /campanha/visualizar/faebc4d4-592b-4d9e-817c-4241902c4aee HTTP/1.1" 200 -
+2026-04-09 09:03:16,926 - INFO - 127.0.0.1 - - [09/Apr/2026 09:03:16] "[36mGET /pending/faebc4d4-592b-4d9e-817c-4241902c4aee/campanha_6e6449a3-bff3-4832-9918-31d8f0c6a8dd_faebc4d4-592b-4d9e-817c-4241902c4aee.pdf HTTP/1.1[0m" 304 -
+2026-04-09 09:03:20,736 - INFO - 127.0.0.1 - - [09/Apr/2026 09:03:20] "GET /campanha/visualizar/faebc4d4-592b-4d9e-817c-4241902c4aee HTTP/1.1" 200 -
+2026-04-09 09:03:20,757 - INFO - 127.0.0.1 - - [09/Apr/2026 09:03:20] "[36mGET /pending/faebc4d4-592b-4d9e-817c-4241902c4aee/campanha_6e6449a3-bff3-4832-9918-31d8f0c6a8dd_faebc4d4-592b-4d9e-817c-4241902c4aee.pdf HTTP/1.1[0m" 304 -
+2026-04-09 09:03:25,762 - INFO - [WORKER] Este processo assumiu a liderança das threads de background.
+2026-04-09 09:03:25,795 - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on http://127.0.0.1:5001
+2026-04-09 09:03:25,795 - INFO - [33mPress CTRL+C to quit[0m
+2026-04-09 09:03:28,852 - INFO - 127.0.0.1 - - [09/Apr/2026 09:03:28] "GET /campanha/visualizar/faebc4d4-592b-4d9e-817c-4241902c4aee HTTP/1.1" 200 -
+2026-04-09 09:03:28,876 - INFO - 127.0.0.1 - - [09/Apr/2026 09:03:28] "[36mGET /pending/faebc4d4-592b-4d9e-817c-4241902c4aee/campanha_6e6449a3-bff3-4832-9918-31d8f0c6a8dd_faebc4d4-592b-4d9e-817c-4241902c4aee.pdf HTTP/1.1[0m" 304 -
+2026-04-09 09:03:29,605 - INFO - 127.0.0.1 - - [09/Apr/2026 09:03:29] "GET /campanha/visualizar/faebc4d4-592b-4d9e-817c-4241902c4aee HTTP/1.1" 200 -
+2026-04-09 09:03:29,628 - INFO - 127.0.0.1 - - [09/Apr/2026 09:03:29] "[36mGET /pending/faebc4d4-592b-4d9e-817c-4241902c4aee/campanha_6e6449a3-bff3-4832-9918-31d8f0c6a8dd_faebc4d4-592b-4d9e-817c-4241902c4aee.pdf HTTP/1.1[0m" 304 -
+2026-04-09 09:04:01,671 - INFO - 127.0.0.1 - - [09/Apr/2026 09:04:01] "GET /campanha/visualizar/faebc4d4-592b-4d9e-817c-4241902c4aee HTTP/1.1" 200 -
+2026-04-09 09:04:01,695 - INFO - 127.0.0.1 - - [09/Apr/2026 09:04:01] "[36mGET /pending/faebc4d4-592b-4d9e-817c-4241902c4aee/campanha_6e6449a3-bff3-4832-9918-31d8f0c6a8dd_faebc4d4-592b-4d9e-817c-4241902c4aee.pdf HTTP/1.1[0m" 304 -
+2026-04-09 09:04:02,337 - INFO - 127.0.0.1 - - [09/Apr/2026 09:04:02] "GET /campanha/visualizar/faebc4d4-592b-4d9e-817c-4241902c4aee HTTP/1.1" 200 -
+2026-04-09 09:04:02,362 - INFO - 127.0.0.1 - - [09/Apr/2026 09:04:02] "[36mGET /pending/faebc4d4-592b-4d9e-817c-4241902c4aee/campanha_6e6449a3-bff3-4832-9918-31d8f0c6a8dd_faebc4d4-592b-4d9e-817c-4241902c4aee.pdf HTTP/1.1[0m" 304 -
+2026-04-09 09:04:11,076 - INFO - 127.0.0.1 - - [09/Apr/2026 09:04:11] "GET /admin HTTP/1.1" 200 -
+2026-04-09 09:04:11,109 - INFO - 127.0.0.1 - - [09/Apr/2026 09:04:11] "GET /api/admin/templates HTTP/1.1" 200 -
+2026-04-09 09:04:11,114 - INFO - 127.0.0.1 - - [09/Apr/2026 09:04:11] "GET /api/admin/docs?page=1&q= HTTP/1.1" 200 -
+2026-04-09 09:04:11,120 - INFO - 127.0.0.1 - - [09/Apr/2026 09:04:11] "GET /api/admin/campanhas?q= HTTP/1.1" 200 -
+2026-04-09 09:04:12,398 - INFO - 127.0.0.1 - - [09/Apr/2026 09:04:12] "GET /api/admin/templates HTTP/1.1" 200 -
+2026-04-09 09:04:12,414 - INFO - 127.0.0.1 - - [09/Apr/2026 09:04:12] "GET /api/admin/campanhas?q= HTTP/1.1" 200 -
+2026-04-09 09:04:15,758 - INFO - 127.0.0.1 - - [09/Apr/2026 09:04:15] "GET /campanha/6e6449a3-bff3-4832-9918-31d8f0c6a8dd HTTP/1.1" 200 -
+2026-04-09 09:04:17,817 - INFO - 127.0.0.1 - - [09/Apr/2026 09:04:17] "POST /api/campanha/auth/validar HTTP/1.1" 200 -
+2026-04-09 09:04:20,165 - INFO - 127.0.0.1 - - [09/Apr/2026 09:04:20] "POST /api/campanha/auth/telefone HTTP/1.1" 200 -
+2026-04-09 09:04:20,181 - INFO - 127.0.0.1 - - [09/Apr/2026 09:04:20] "GET /campanha/visualizar/faebc4d4-592b-4d9e-817c-4241902c4aee HTTP/1.1" 200 -
+2026-04-09 09:04:20,194 - INFO - 127.0.0.1 - - [09/Apr/2026 09:04:20] "[36mGET /pending/faebc4d4-592b-4d9e-817c-4241902c4aee/campanha_6e6449a3-bff3-4832-9918-31d8f0c6a8dd_faebc4d4-592b-4d9e-817c-4241902c4aee.pdf HTTP/1.1[0m" 304 -
+2026-04-09 09:06:26,788 - INFO - 127.0.0.1 - - [09/Apr/2026 09:06:26] "GET /campanha/visualizar/faebc4d4-592b-4d9e-817c-4241902c4aee HTTP/1.1" 200 -
+2026-04-09 09:06:26,809 - INFO - 127.0.0.1 - - [09/Apr/2026 09:06:26] "[36mGET /pending/faebc4d4-592b-4d9e-817c-4241902c4aee/campanha_6e6449a3-bff3-4832-9918-31d8f0c6a8dd_faebc4d4-592b-4d9e-817c-4241902c4aee.pdf HTTP/1.1[0m" 304 -
+2026-04-09 09:06:32,388 - INFO - 127.0.0.1 - - [09/Apr/2026 09:06:32] "GET /campanha/visualizar/faebc4d4-592b-4d9e-817c-4241902c4aee HTTP/1.1" 200 -
+2026-04-09 09:06:32,414 - INFO - 127.0.0.1 - - [09/Apr/2026 09:06:32] "[36mGET /pending/faebc4d4-592b-4d9e-817c-4241902c4aee/campanha_6e6449a3-bff3-4832-9918-31d8f0c6a8dd_faebc4d4-592b-4d9e-817c-4241902c4aee.pdf HTTP/1.1[0m" 304 -
+2026-04-09 09:09:37,439 - INFO - [WORKER] Este processo assumiu a liderança das threads de background.
+2026-04-09 09:09:37,471 - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on http://127.0.0.1:5001
+2026-04-09 09:09:37,471 - INFO - [33mPress CTRL+C to quit[0m
+2026-04-09 09:09:40,323 - INFO - 127.0.0.1 - - [09/Apr/2026 09:09:40] "GET /campanha/visualizar/faebc4d4-592b-4d9e-817c-4241902c4aee HTTP/1.1" 200 -
+2026-04-09 09:09:40,346 - INFO - 127.0.0.1 - - [09/Apr/2026 09:09:40] "[36mGET /pending/faebc4d4-592b-4d9e-817c-4241902c4aee/campanha_6e6449a3-bff3-4832-9918-31d8f0c6a8dd_faebc4d4-592b-4d9e-817c-4241902c4aee.pdf HTTP/1.1[0m" 304 -
+2026-04-09 09:09:43,404 - INFO - 127.0.0.1 - - [09/Apr/2026 09:09:43] "GET /campanha/visualizar/faebc4d4-592b-4d9e-817c-4241902c4aee HTTP/1.1" 200 -
+2026-04-09 09:09:43,429 - INFO - 127.0.0.1 - - [09/Apr/2026 09:09:43] "[36mGET /pending/faebc4d4-592b-4d9e-817c-4241902c4aee/campanha_6e6449a3-bff3-4832-9918-31d8f0c6a8dd_faebc4d4-592b-4d9e-817c-4241902c4aee.pdf HTTP/1.1[0m" 304 -
+2026-04-09 09:09:56,535 - INFO - 127.0.0.1 - - [09/Apr/2026 09:09:56] "GET /campanha/visualizar/faebc4d4-592b-4d9e-817c-4241902c4aee HTTP/1.1" 200 -
+2026-04-09 09:09:56,562 - INFO - 127.0.0.1 - - [09/Apr/2026 09:09:56] "[36mGET /pending/faebc4d4-592b-4d9e-817c-4241902c4aee/campanha_6e6449a3-bff3-4832-9918-31d8f0c6a8dd_faebc4d4-592b-4d9e-817c-4241902c4aee.pdf HTTP/1.1[0m" 304 -
+2026-04-09 09:28:48,859 - INFO - 127.0.0.1 - - [09/Apr/2026 09:28:48] "GET /campanha/visualizar/faebc4d4-592b-4d9e-817c-4241902c4aee HTTP/1.1" 200 -
+2026-04-09 09:28:48,892 - INFO - 127.0.0.1 - - [09/Apr/2026 09:28:48] "[36mGET /pending/faebc4d4-592b-4d9e-817c-4241902c4aee/campanha_6e6449a3-bff3-4832-9918-31d8f0c6a8dd_faebc4d4-592b-4d9e-817c-4241902c4aee.pdf HTTP/1.1[0m" 304 -
+2026-04-09 09:28:57,618 - INFO - 127.0.0.1 - - [09/Apr/2026 09:28:57] "GET /campanha/visualizar/faebc4d4-592b-4d9e-817c-4241902c4aee HTTP/1.1" 200 -
+2026-04-09 09:28:57,638 - INFO - 127.0.0.1 - - [09/Apr/2026 09:28:57] "GET /pending/faebc4d4-592b-4d9e-817c-4241902c4aee/campanha_6e6449a3-bff3-4832-9918-31d8f0c6a8dd_faebc4d4-592b-4d9e-817c-4241902c4aee.pdf HTTP/1.1" 200 -
+2026-04-09 09:28:57,650 - INFO - 127.0.0.1 - - [09/Apr/2026 09:28:57] "[33mGET /favicon.ico HTTP/1.1[0m" 404 -
+2026-04-09 09:29:17,108 - INFO - [WORKER] Este processo assumiu a liderança das threads de background.
+2026-04-09 09:29:17,147 - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on http://127.0.0.1:5001
+2026-04-09 09:29:17,147 - INFO - [33mPress CTRL+C to quit[0m
+2026-04-09 09:29:23,923 - INFO - 127.0.0.1 - - [09/Apr/2026 09:29:23] "GET /campanha/6e6449a3-bff3-4832-9918-31d8f0c6a8dd HTTP/1.1" 200 -
+2026-04-09 09:29:26,224 - INFO - 127.0.0.1 - - [09/Apr/2026 09:29:26] "POST /api/campanha/auth/validar HTTP/1.1" 200 -
+2026-04-09 09:29:28,434 - INFO - 127.0.0.1 - - [09/Apr/2026 09:29:28] "POST /api/campanha/auth/telefone HTTP/1.1" 200 -
+2026-04-09 09:29:28,447 - INFO - 127.0.0.1 - - [09/Apr/2026 09:29:28] "GET /campanha/visualizar/faebc4d4-592b-4d9e-817c-4241902c4aee HTTP/1.1" 200 -
+2026-04-09 09:29:28,463 - INFO - 127.0.0.1 - - [09/Apr/2026 09:29:28] "[36mGET /pending/faebc4d4-592b-4d9e-817c-4241902c4aee/campanha_6e6449a3-bff3-4832-9918-31d8f0c6a8dd_faebc4d4-592b-4d9e-817c-4241902c4aee.pdf HTTP/1.1[0m" 304 -
+2026-04-09 09:30:29,823 - INFO - [WORKER] Este processo assumiu a liderança das threads de background.
+2026-04-09 09:30:29,854 - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on http://127.0.0.1:5001
+2026-04-09 09:30:29,854 - INFO - [33mPress CTRL+C to quit[0m
+2026-04-09 09:30:33,277 - INFO - 127.0.0.1 - - [09/Apr/2026 09:30:33] "GET /campanha/visualizar/faebc4d4-592b-4d9e-817c-4241902c4aee HTTP/1.1" 200 -
+2026-04-09 09:30:33,301 - INFO - 127.0.0.1 - - [09/Apr/2026 09:30:33] "[36mGET /pending/faebc4d4-592b-4d9e-817c-4241902c4aee/campanha_6e6449a3-bff3-4832-9918-31d8f0c6a8dd_faebc4d4-592b-4d9e-817c-4241902c4aee.pdf HTTP/1.1[0m" 304 -

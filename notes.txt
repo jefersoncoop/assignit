@@ -15,6 +15,6 @@ source venv/bin/activate
 
 eval "$(ssh-agent -s)"                             
 ssh-add ~/.ssh/ssh-key-2025-05-06.key
-git commit -m "Painel adm v1"    
+git commit -m "Painel adm v2"    
 git add .  
 git push -u origin main   

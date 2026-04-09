@@ -72,18 +72,19 @@
 
     <div class="container">
         <h2>Olá, {{ nome }}</h2>
-        <p>Para finalizar sua atualização cadastral, leia e assine o Termo de Ciência e adesão à condição de
-            Cooperado.</p>
+        <p>Para finalizar sua atualização cadastral, leia e assine o Termo de Ciência e adesão à condição de Cooperado.</p>
 
-        <iframe src="{{ pdf_url }}" class="doc-preview"></iframe>
-
-        <div>
-            <a href="{{ pdf_url }}" target="_blank" class="btn btn-secondary">Download PDF</a>
-            <br><br>
+        <div style="margin-bottom: 20px; display: flex; justify-content: center;">
             <a href="/sign/{{ request_id }}" class="btn btn-primary"
                 style="font-size: 1.3em; padding: 15px 40px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">Prosseguir com a
                 Assinatura
             </a>
+        </div>
+
+        <iframe src="{{ pdf_url }}" class="doc-preview"></iframe>
+
+        <div style="margin-top: 20px; display: flex; justify-content: center;">
+            <a href="{{ pdf_url }}" target="_blank" class="btn btn-secondary" style="font-size: 0.9em; padding: 8px 15px;">Download PDF</a>
         </div>
     </div>
 
