@@ -173,13 +173,13 @@
             <div id="step-2" class="step">
                 <h2>Revise o Documento</h2>
                 <p>Leia atentamente o documento abaixo antes de prosseguir para a assinatura.</p>
+                <div class="actions" style="margin-bottom: 20px;">
+                    <button type="button" class="btn btn-primary" id="btn-to-step-3">Avançar para Assinatura</button>
+                </div>
                 <div class="document-viewer">
                     {% for image_url in document_images %}
                     <img src="{{ image_url }}" alt="Página do documento">
                     {% endfor %}
-                </div>
-                <div class="actions">
-                    <button type="button" class="btn btn-primary" id="btn-to-step-3">Avançar</button>
                 </div>
             </div>
             {% endif %}
