@@ -1135,3 +1135,45 @@
 2026-04-09 09:30:29,854 - INFO - [33mPress CTRL+C to quit[0m
 2026-04-09 09:30:33,277 - INFO - 127.0.0.1 - - [09/Apr/2026 09:30:33] "GET /campanha/visualizar/faebc4d4-592b-4d9e-817c-4241902c4aee HTTP/1.1" 200 -
 2026-04-09 09:30:33,301 - INFO - 127.0.0.1 - - [09/Apr/2026 09:30:33] "[36mGET /pending/faebc4d4-592b-4d9e-817c-4241902c4aee/campanha_6e6449a3-bff3-4832-9918-31d8f0c6a8dd_faebc4d4-592b-4d9e-817c-4241902c4aee.pdf HTTP/1.1[0m" 304 -
+2026-04-09 10:10:19,275 - INFO - [WORKER] Este processo assumiu a liderança das threads de background.
+2026-04-09 10:10:19,520 - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on http://127.0.0.1:5001
+2026-04-09 10:10:19,520 - INFO - [33mPress CTRL+C to quit[0m
+2026-04-09 10:10:25,375 - INFO - 127.0.0.1 - - [09/Apr/2026 10:10:25] "GET /campanha/6e6449a3-bff3-4832-9918-31d8f0c6a8dd HTTP/1.1" 200 -
+2026-04-09 10:10:27,576 - INFO - 127.0.0.1 - - [09/Apr/2026 10:10:27] "POST /api/campanha/auth/validar HTTP/1.1" 200 -
+2026-04-09 10:10:30,071 - INFO - 127.0.0.1 - - [09/Apr/2026 10:10:30] "POST /api/campanha/auth/telefone HTTP/1.1" 200 -
+2026-04-09 10:10:30,100 - INFO - 127.0.0.1 - - [09/Apr/2026 10:10:30] "GET /campanha/visualizar/faebc4d4-592b-4d9e-817c-4241902c4aee HTTP/1.1" 200 -
+2026-04-09 10:10:30,151 - INFO - 127.0.0.1 - - [09/Apr/2026 10:10:30] "[36mGET /pending/faebc4d4-592b-4d9e-817c-4241902c4aee/campanha_6e6449a3-bff3-4832-9918-31d8f0c6a8dd_faebc4d4-592b-4d9e-817c-4241902c4aee.pdf HTTP/1.1[0m" 304 -
+2026-04-09 10:10:33,039 - INFO - 127.0.0.1 - - [09/Apr/2026 10:10:33] "GET /sign/faebc4d4-592b-4d9e-817c-4241902c4aee HTTP/1.1" 200 -
+2026-04-09 10:10:33,116 - INFO - 127.0.0.1 - - [09/Apr/2026 10:10:33] "GET /pending/faebc4d4-592b-4d9e-817c-4241902c4aee/page_2.png HTTP/1.1" 200 -
+2026-04-09 10:10:33,118 - INFO - 127.0.0.1 - - [09/Apr/2026 10:10:33] "GET /pending/faebc4d4-592b-4d9e-817c-4241902c4aee/page_1.png HTTP/1.1" 200 -
+2026-04-09 10:10:33,188 - INFO - 127.0.0.1 - - [09/Apr/2026 10:10:33] "GET /pending/faebc4d4-592b-4d9e-817c-4241902c4aee/page_3.png HTTP/1.1" 200 -
+2026-04-09 10:12:41,108 - INFO - [WORKER] Este processo assumiu a liderança das threads de background.
+2026-04-09 10:12:41,358 - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on http://127.0.0.1:5001
+2026-04-09 10:12:41,358 - INFO - [33mPress CTRL+C to quit[0m
+2026-04-09 10:12:51,955 - INFO - 127.0.0.1 - - [09/Apr/2026 10:12:51] "GET /campanha/6e6449a3-bff3-4832-9918-31d8f0c6a8dd HTTP/1.1" 200 -
+2026-04-09 10:12:54,875 - INFO - 127.0.0.1 - - [09/Apr/2026 10:12:54] "POST /api/campanha/auth/validar HTTP/1.1" 200 -
+2026-04-09 10:12:56,757 - INFO - 127.0.0.1 - - [09/Apr/2026 10:12:56] "POST /api/campanha/auth/telefone HTTP/1.1" 200 -
+2026-04-09 10:12:56,787 - INFO - 127.0.0.1 - - [09/Apr/2026 10:12:56] "GET /campanha/visualizar/faebc4d4-592b-4d9e-817c-4241902c4aee HTTP/1.1" 200 -
+2026-04-09 10:12:56,858 - INFO - 127.0.0.1 - - [09/Apr/2026 10:12:56] "[36mGET /pending/faebc4d4-592b-4d9e-817c-4241902c4aee/campanha_6e6449a3-bff3-4832-9918-31d8f0c6a8dd_faebc4d4-592b-4d9e-817c-4241902c4aee.pdf HTTP/1.1[0m" 304 -
+2026-04-09 10:12:58,619 - INFO - 127.0.0.1 - - [09/Apr/2026 10:12:58] "GET /sign/faebc4d4-592b-4d9e-817c-4241902c4aee HTTP/1.1" 200 -
+2026-04-09 10:13:24,978 - INFO - [ENVIO] Tentando enviar para 84996063206 | Etapa: Concluído | ID: faebc4d4-592b-4d9e-817c-4241902c4aee
+2026-04-09 10:13:25,807 - ERROR - [ERRO API] Código: 500 | Resposta: {"error":"Erro ao enviar."} | Telefone: 84996063206
+2026-04-09 10:13:25,811 - INFO - 127.0.0.1 - - [09/Apr/2026 10:13:25] "[32mPOST /submit_signature/faebc4d4-592b-4d9e-817c-4241902c4aee HTTP/1.1[0m" 302 -
+2026-04-09 10:13:25,834 - INFO - 127.0.0.1 - - [09/Apr/2026 10:13:25] "GET /success?filename=signed_campanha_6e6449a3-bff3-4832-9918-31d8f0c6a8dd_faebc4d4-592b-4d9e-817c-4241902c4aee.pdf HTTP/1.1" 200 -
+2026-04-09 10:13:33,247 - INFO - 127.0.0.1 - - [09/Apr/2026 10:13:33] "GET /api/admin/templates HTTP/1.1" 200 -
+2026-04-09 10:13:33,344 - INFO - 127.0.0.1 - - [09/Apr/2026 10:13:33] "GET /api/admin/campanhas?q= HTTP/1.1" 200 -
+2026-04-09 10:13:36,797 - INFO - 127.0.0.1 - - [09/Apr/2026 10:13:36] "GET /api/admin/campanhas/6e6449a3-bff3-4832-9918-31d8f0c6a8dd/template-vars HTTP/1.1" 200 -
+2026-04-09 10:13:36,800 - INFO - 127.0.0.1 - - [09/Apr/2026 10:13:36] "GET /api/admin/campanhas/6e6449a3-bff3-4832-9918-31d8f0c6a8dd/docs?page=1&q=&status= HTTP/1.1" 200 -
+2026-04-09 10:13:51,138 - INFO - 127.0.0.1 - - [09/Apr/2026 10:13:51] "GET /campanha/auth/11e56b89-d501-42c0-8e8f-0204121dc934 HTTP/1.1" 200 -
+2026-04-09 10:13:56,598 - INFO - 127.0.0.1 - - [09/Apr/2026 10:13:56] "POST /api/campanha/auth/validar HTTP/1.1" 200 -
+2026-04-09 10:14:01,130 - INFO - 127.0.0.1 - - [09/Apr/2026 10:14:01] "POST /api/campanha/auth/telefone HTTP/1.1" 200 -
+2026-04-09 10:14:01,146 - INFO - 127.0.0.1 - - [09/Apr/2026 10:14:01] "GET /campanha/visualizar/11e56b89-d501-42c0-8e8f-0204121dc934 HTTP/1.1" 200 -
+2026-04-09 10:14:01,193 - INFO - 127.0.0.1 - - [09/Apr/2026 10:14:01] "GET /pending/11e56b89-d501-42c0-8e8f-0204121dc934/campanha_6e6449a3-bff3-4832-9918-31d8f0c6a8dd_11e56b89-d501-42c0-8e8f-0204121dc934.pdf HTTP/1.1" 200 -
+2026-04-09 10:14:03,808 - INFO - 127.0.0.1 - - [09/Apr/2026 10:14:03] "GET /sign/11e56b89-d501-42c0-8e8f-0204121dc934 HTTP/1.1" 200 -
+2026-04-09 10:14:12,888 - INFO - [ENVIO] Tentando enviar para 84996063206 | Etapa: Concluído | ID: 11e56b89-d501-42c0-8e8f-0204121dc934
+2026-04-09 10:14:13,629 - ERROR - [ERRO API] Código: 500 | Resposta: {"error":"Erro ao enviar."} | Telefone: 84996063206
+2026-04-09 10:14:13,634 - INFO - 127.0.0.1 - - [09/Apr/2026 10:14:13] "[32mPOST /submit_signature/11e56b89-d501-42c0-8e8f-0204121dc934 HTTP/1.1[0m" 302 -
+2026-04-09 10:14:13,639 - INFO - 127.0.0.1 - - [09/Apr/2026 10:14:13] "GET /success?filename=signed_campanha_6e6449a3-bff3-4832-9918-31d8f0c6a8dd_11e56b89-d501-42c0-8e8f-0204121dc934.pdf HTTP/1.1" 200 -
+2026-04-09 10:14:25,092 - INFO - 127.0.0.1 - - [09/Apr/2026 10:14:25] "GET /api/admin/campanhas?q= HTTP/1.1" 200 -
