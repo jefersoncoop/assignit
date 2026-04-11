@@ -1,0 +1,12 @@
+assinaturas.db
+whatsapp_integration.log
+*.log
+venv/
+__pycache__/
+*.pyc
+.DS_Store
+pending/
+signed/
+completed/
+templates_dynamic/
+.env
