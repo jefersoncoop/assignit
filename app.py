@@ -31,9 +31,19 @@ from PyPDF2 import PdfWriter, PdfReader
 # --- Configuração do App e Pastas ---
 app = Flask(__name__)
 CORS(app) 
-app.config['BASIC_AUTH_USERNAME'] = 'admin'
-app.config['BASIC_AUTH_PASSWORD'] = 'admin123'
-basic_auth = BasicAuth(app)
+# --- Autenticação Multi-usuário ---
+class MultiUserBasicAuth(BasicAuth):
+    def check_auth(self, username, password, allowed_roles=None):
+        authorized_users = app.config.get('AUTHORIZED_USERS', {})
+        return username in authorized_users and authorized_users[username] == password
+
+app.config['AUTHORIZED_USERS'] = {
+    'admin': 'admin123',
+    'crm': 'crm_password_xyz'  # Você pode trocar ou adicionar mais aqui
+}
+# Chave mestra para integrações externas (CRM, Zapier, etc)
+app.config['MASTER_API_KEY'] = os.environ.get('MASTER_API_KEY', 'assignit_key_2024_coopedu')
+basic_auth = MultiUserBasicAuth(app)
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.join(BASE_DIR, 'assinaturas.db')
@@ -1054,8 +1064,13 @@ def get_template_vars(campanha_id):
     return jsonify({"vars": vars_mapped})
 
 @app.route('/api/admin/campanhas/<campanha_id>/add-participante', methods=['POST'])
-@basic_auth.required
 def add_participante_campanha(campanha_id):
+    # Verificação de X-API-KEY para integração externa
+    api_key = request.headers.get('X-API-KEY')
+    if api_key != app.config['MASTER_API_KEY']:
+        logging.warning(f"[AUTH] Tentativa de acesso negada com chave: {api_key}")
+        return jsonify({"sucesso": False, "erro": "Não autorizado. X-API-KEY inválida ou ausente."}), 401
+        
     camp = db.session.get(Campanha, campanha_id)
     if not camp: return jsonify({"sucesso": False, "erro": "Campanha não encontrada"}), 404
     tpl = db.session.get(TemplateDocumento, camp.template_id)
