@@ -33,15 +33,21 @@ app = Flask(__name__)
 CORS(app) 
 # --- Autenticação Multi-usuário ---
 class MultiUserBasicAuth(BasicAuth):
-    def check_auth(self, username, password, allowed_roles=None):
+    def authenticate(self):
+        # Sobrescrevemos o método principal para não buscar chaves fixas no config
+        auth = request.authorization
+        if not (auth and auth.type == 'basic'):
+            return False
         authorized_users = app.config.get('AUTHORIZED_USERS', {})
-        return username in authorized_users and authorized_users[username] == password
+        return auth.username in authorized_users and authorized_users[auth.username] == auth.password
 
 app.config['AUTHORIZED_USERS'] = {
     'admin': 'admin123',
-    'crm': 'crm_password_xyz'  # Você pode trocar ou adicionar mais aqui
+    'crm': 'crm_password_xyz'
 }
-# Chave mestra para integrações externas (CRM, Zapier, etc)
+# Chaves dummy para evitar que a biblioteca dê KeyError interno
+app.config['BASIC_AUTH_USERNAME'] = 'admin'
+app.config['BASIC_AUTH_PASSWORD'] = 'admin123'
 app.config['MASTER_API_KEY'] = os.environ.get('MASTER_API_KEY', 'assignit_key_2024_coopedu')
 basic_auth = MultiUserBasicAuth(app)
 
@@ -170,11 +176,24 @@ def gerar_pdf_para_campanha(tpl, row_data, output_path):
     with open(output_path, "wb") as f: output_writer.write(f)
     return calculate_hash(output_path)
 
-logging.basicConfig(
-    filename=os.path.join(os.path.dirname(os.path.abspath(__file__)), 'whatsapp_integration.log'),
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s'
-)
+# --- Configuração de LOGS (Resiliente) ---
+try:
+    log_file = os.path.join(BASE_DIR, 'whatsapp_integration.log')
+    # Se o arquivo não puder ser aberto (permissão), tentamos em /tmp/
+    if os.path.exists(log_file) and not os.access(log_file, os.W_OK):
+        log_file = '/tmp/whatsapp_integration.log'
+        
+    logging.basicConfig(
+        filename=log_file,
+        level=logging.INFO,
+        format='%(asctime)s - %(levelname)s - %(message)s'
+    )
+    logging.info("--- Sistema Iniciado / Logs Configurados ---")
+except Exception as log_e:
+    # Se falhar totalmente, loga apenas no console (stdout) para evitar Erro 500
+    logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+    logging.error(f"AVISO: Falha ao configurar arquivo de log físico: {str(log_e)}")
+
 # --- FUNÇÃO PARA ENVIAR WHATSAPP (COM LOGS DETALHADOS) ---
 def enviar_notificacao_whatsapp(nome, cpf, link, etapa, numero, request_id):
     try:
@@ -241,6 +260,23 @@ def mask_cpf(cpf):
 def admin_dashboard():
     # Agora o frontend busca os dados via API paginada para ser mais rápido
     return render_template('admin.html')
+
+@app.route('/api/admin/logs', methods=['GET'])
+@basic_auth.required
+def buscar_logs():
+    try:
+        log_file = os.path.join(BASE_DIR, 'whatsapp_integration.log')
+        if not os.path.exists(log_file):
+            return jsonify({"sucesso": True, "logs": ["Arquivo de log ainda não criado. Aguardando envios..."]})
+            
+        with open(log_file, 'r') as f:
+            lines = f.readlines()
+            return jsonify({
+                "sucesso": True, 
+                "logs": lines[-100:] # Retorna as últimas 100 linhas
+            })
+    except Exception as e:
+        return jsonify({"sucesso": True, "logs": [f"Aviso: Não foi possível ler o arquivo de log no servidor: {str(e)}"]})
 
 @app.route('/api/admin/docs', methods=['GET'])
 @basic_auth.required
@@ -1106,8 +1142,6 @@ def add_participante_campanha(campanha_id):
         return jsonify({"sucesso": True})
     except Exception as e:
         return jsonify({"sucesso": False, "erro": str(e)}), 500
-    except Exception as e:
-        return jsonify({"sucesso": False, "erro": str(e)}), 500
 
 # --- Rotas do Processo de Assinatura ---
 
@@ -1147,8 +1181,18 @@ def submit_signature(request_id):
     if not doc or doc.status != 'pending': abort(404)
 
     pending_path = os.path.join(app.config['PENDING_FOLDER'], doc.request_id)
-    signature_b64 = request.form['signature'].split(',')[1]
-    selfie_b64 = request.form['selfie'].split(',')[1]
+    try:
+        sig_data = request.form.get('signature', '')
+        if ',' not in sig_data:
+            return "Erro: Assinatura inválida (Base64 incorreto)", 400
+        signature_b64 = sig_data.split(',')[1]
+        
+        selfie_data = request.form.get('selfie', '')
+        if ',' not in selfie_data:
+            return "Erro: Selfie inválida (Base64 incorreto)", 400
+        selfie_b64 = selfie_data.split(',')[1]
+    except Exception as e:
+        return f"Erro ao processar imagens: {str(e)}", 400
     import base64
     sig_path = os.path.join(pending_path, 'signature.png')
     selfie_path = os.path.join(pending_path, 'selfie.png')
@@ -1229,30 +1273,6 @@ def listar_documentos():
 def create_db():
     with app.app_context(): db.create_all()
     print("Banco de dados criado!")
-# app.py
-
-# ... (restante do código)
-
-@app.route('/admin/get-logs')
-@basic_auth.required
-def get_logs():
-    log_path = os.path.join(BASE_DIR, 'whatsapp_integration.log')
-    if not os.path.exists(log_path):
-        return jsonify({"logs": ["Arquivo de log ainda não criado."]}), 200
-    
-    try:
-        with open(log_path, 'r') as f:
-            # Lê as últimas 100 linhas para não sobrecarregar a página
-            linhas = f.readlines()
-            ultimas_linhas = linhas[-100:] 
-            # Inverte para mostrar o mais recente primeiro
-            ultimas_linhas.reverse()
-            return jsonify({"logs": ultimas_linhas}), 200
-    except Exception as e:
-        return jsonify({"sucesso": False, "erro": str(e)}), 500
-
-
-
 
 def whatsapp_queue_worker():
     while True:
